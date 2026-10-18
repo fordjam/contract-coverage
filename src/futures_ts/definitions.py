@@ -193,7 +193,8 @@ class Definitions:
                 )
                 near_leg, near = ordered[0]
                 far_leg, far = ordered[1]
-                if (near_leg["leg_side"], far_leg["leg_side"]) != ("B", "A"):
+                sides = (near_leg["leg_side"], far_leg["leg_side"])
+                if sides not in (("B", "A"), ("A", "B")):
                     row["exclusion_reason"] = "unsupported_leg_orientation"
                 else:
                     row.update(
@@ -201,6 +202,7 @@ class Definitions:
                         calendar_spread=all(active(i) for i in instruments),
                         near_key=near["contract_key"],
                         far_key=far["contract_key"],
+                        listed_price_sign=1 if sides == ("B", "A") else -1,
                     )
                     if not row["calendar_spread"]:
                         row["exclusion_reason"] = "leg_outside_lifecycle"

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import logging
 import os
 import shutil
 import tempfile
@@ -28,6 +29,7 @@ from .transforms import (
 )
 
 OUTPUT_TABLES = [name for name in SCHEMAS if name != "statistics_events"]
+LOG = logging.getLogger(__name__)
 
 
 def calendar_file(path: Path | None, roots: tuple[str, ...]) -> dict[str, list[date]]:
@@ -49,6 +51,7 @@ def calendar_file(path: Path | None, roots: tuple[str, ...]) -> dict[str, list[d
 
 
 def ingest(sources: Sources, raw: Path, end: date | None) -> dict:
+    LOG.info("Ingesting %s source files", len(sources.files))
     writer, definitions = Writer(raw), Definitions(sources)
     catalog_cache = OrderedDict()
     counts = defaultdict(int)
@@ -74,11 +77,15 @@ def ingest(sources: Sources, raw: Path, end: date | None) -> dict:
                 )
         writer.rows("instruments", instruments)
         writer.rows("instrument_legs", [r for r in legs if r["root"] in sources.requested_roots])
-    for source in sorted(sources.files, key=lambda s: (s.schema, s.day, str(s.path))):
+    for number, source in enumerate(
+        sorted(sources.files, key=lambda s: (s.schema, s.day, str(s.path))), 1
+    ):
         if source.schema == "definition":
             continue
         if source.schema == "ohlcv-1d" and end and source.day > end:
             continue
+        if number % 100 == 0:
+            LOG.info("Source %s/%s: %s %s", number, len(sources.files), source.schema, source.day)
         for chunk in arrays(source):
             counts[source.schema + "_decoded"] += len(chunk)
             if source.schema == "statistics":
@@ -234,6 +241,7 @@ def process_root(
     end: date | None,
     roll_days: int,
 ) -> None:
+    LOG.info("Processing root %s", root)
     writer = Writer(output)
     if root == "__unmapped__":
         for first, following in _periods(raw, root, []):
@@ -416,6 +424,7 @@ def process_root(
                         "near_key": near["contract_key"],
                         "calendar_structure": True,
                         "far_key": far["contract_key"],
+                        "listed_price_sign": 1,
                         "kind": "synthetic",
                         "near_rank": n + 1,
                         "far_rank": n + 2,
@@ -470,6 +479,7 @@ def process_root(
         writer.add("instruments", dimensions)
         writer.add("instrument_legs", scan(raw, "instrument_legs", root).unique().collect())
     writer.finish()
+    LOG.info("Completed root %s", root)
 
 
 def build(

@@ -8,6 +8,7 @@ os.environ.setdefault("POLARS_MAX_THREADS", "2")
 
 import argparse
 import json
+import logging
 import sys
 from datetime import date
 from pathlib import Path
@@ -37,6 +38,7 @@ def main(argv: list[str] | None = None) -> int:
         sub = commands.add_parser(command)
         sub.add_argument("--out", required=True, type=Path)
     args = parser.parse_args(argv)
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
     try:
         if args.command == "build":
             from .pipeline import build

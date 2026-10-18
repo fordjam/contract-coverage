@@ -78,6 +78,7 @@ IDENTITY = {
     "calendar_structure": pl.Boolean,
     "near_key": pl.String,
     "far_key": pl.String,
+    "listed_price_sign": pl.Int8,
     "delivery_month": pl.String,
 }
 INSTRUMENT = {**IDENTITY, "deleted": pl.Boolean, "first_seen": pl.Date, "last_seen": pl.Date}

@@ -60,6 +60,25 @@ def test_spread_legs_are_rows_not_duplicate_instruments(tmp_path):
     assert len(catalog) == 3
     assert catalog[1, 3]["calendar_spread"]
     assert catalog[1, 3]["near_key"] == catalog[1, 1]["contract_key"]
+    assert catalog[1, 3]["listed_price_sign"] == 1
+
+
+@pytest.mark.parametrize("sides,eligible,sign", [("AB", True, -1), ("AA", False, None)])
+def test_reversed_calendar_and_ambiguous_sides(tmp_path, sides, eligible, sign):
+    rows = [definition(1, "A", expiry="2025-03-20"), definition(2, "B")]
+    rows += [
+        definition(3, "B-A", leg_count=2, leg=(0, 1, "A", sides[0])),
+        definition(3, "B-A", leg_count=2, leg=(1, 2, "B", sides[1])),
+    ]
+    batch(tmp_path, "defs", "definition", {"2025-01-01": rows})
+    row = Definitions(discover(tmp_path, ("CL",))).catalog(date(2025, 1, 2))[1, 3]
+    assert row["calendar_spread"] is eligible
+    assert row["listed_price_sign"] == sign
+    if eligible:
+        assert row["near_key"] != row["far_key"]
+        assert row["exclusion_reason"] is None
+    else:
+        assert row["exclusion_reason"] == "unsupported_leg_orientation"
 
 
 def test_missing_definition_retains_identity(tmp_path):
