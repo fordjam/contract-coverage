@@ -31,8 +31,8 @@ not modified.
 
 ## Validation
 
-On Python 3.12: **81 pipeline tests passed**, plus **24 original selector tests**
-(105 total). Original JSON/CSV/policy smoke checks reproduce the committed example.
+On Python 3.12: **82 pipeline tests passed**, plus **24 original selector tests**
+(106 total). Original JSON/CSV/policy smoke checks reproduce the committed example.
 Ruff F/E9/B checks and the 100-column gate pass on new Python files. Wheel and
 source distribution are built offline, and the installed CLI is exercised with
 generated fixtures. The installed-wheel smoke test reuses already installed

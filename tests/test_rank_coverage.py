@@ -1,5 +1,6 @@
 from datetime import date
 import json
+import warnings
 
 import polars as pl
 import pytest
@@ -210,3 +211,17 @@ def test_analysis_default_ends_before_partial_activity_source(tmp_path, capsys):
     assert json.loads(capsys.readouterr().out)["end"] == "2025-01-02"
     data = json.loads((out / "analysis/analysis.json").read_text())
     assert data["archive_partial_source_dates"] == ["2025-01-03"]
+
+
+def test_requested_root_without_observations_remains_unavailable(tmp_path, capsys):
+    src, out = tmp_path / "src", tmp_path / "out"
+    example(src)
+    build(src, out, roots=("CL", "NG"))
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
+        assert main(["analyze", "--out", str(out)]) == 0
+    data = json.loads((out / "analysis/analysis.json").read_text())
+    ng = next(r for r in data["root_quality"] if r["root"] == "NG")
+    assert ng["observed_dates"] == 0
+    assert ng["reference_dates"] == 4
+    assert not any(r["root"] == "NG" for r in data["recommendations"])

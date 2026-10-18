@@ -361,9 +361,10 @@ def analyze_ranks(
                 front_chain.extend(front_chain_curve(rows))
                 recommendations.extend(chosen)
         snapshot = instruments["date"].max()
+        snapshot_filter = pl.col("date") == snapshot if snapshot is not None else pl.lit(False)
         listed = (
             instruments.filter(
-                (pl.col("date") == snapshot)
+                snapshot_filter
                 & pl.col("calendar_structure").fill_null(False)
                 & ~pl.col("deleted")
                 & (pl.col("activation") <= end)
@@ -406,7 +407,8 @@ def analyze_ranks(
         root_quality.append(
             {
                 "root": root,
-                "observed_dates": len(days),
+                "observed_dates": len(observed),
+                "reference_dates": len(session_dates),
                 "latest_observed_date": str(max(observed)) if observed else None,
                 "contract_mapping_date": str(end),
                 "latest_definition": str(instruments["date"].max()) if instruments.height else None,
