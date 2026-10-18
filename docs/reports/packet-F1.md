@@ -81,38 +81,51 @@ python3.12 -m tests.benchmark_synthetic --work out/memory-revisions --scale 5
 
 ## Real-data execution
 
-The authorized, explicitly bounded build of all 35 roots from 2025-01-01 through
-the archive end completed and passed invariant/checksum validation. It decoded
-626,505 UTC bars and 90,283,390 statistics messages, retaining 9,481,711 reduced
-candidate events before reference-session reduction. The build took 311.48 seconds
-with two workers; maximum process RSS was 925,581,312 bytes, below 2 GB. Final
-Parquet tables occupy 233,006,585 bytes. A second `check` after report creation passed.
+The authorized full available archive build of all 35 roots completed and passed
+invariant/checksum validation. It processed 10,349 selected source files, decoding
+4,919,665 UTC bars and 590,264,341 statistics messages, with 70,940,475 retained
+early-reduced candidate events. Final
+Parquet tables occupy 1,844,095,333 bytes across 6,393 files. The complete two-worker
+build took 2050.32 seconds with maximum process RSS of 1,507,753,984 bytes,
+below the 2 GB limit. The execution receipt also records the platform's separate
+peak-memory-footprint counter and phase times.
 
-The recent 60-reference-date activity report completed in 1.04 seconds at
-149,323,776 bytes maximum RSS. It covers 2026-05-14 through 2026-08-10, excluding the
-partial final activity source day. Both HTML and Markdown reports, machine-readable
-selections, symbol mappings, data availability, excluded structures and unmapped
-activity remain with the local derived output, outside Git. Browser checks of the
-real report passed without external requests. These measurements describe this
-specific bounded run, not the full-history run still being validated.
+The first completed historical build passed artifact checks but exceeded the memory
+limit at 2,346,926,080 bytes RSS. Its coverage report materialized the entire wide
+unmapped table to count annual IDs. The query now aggregates only identity/year
+columns before collecting. Standalone full-archive coverage fell from
+1,643,380,736 to 563,036,160 bytes maximum RSS with identical results. The final
+end-to-end rerun above verifies the fix. Every Parquet checksum matches the earlier
+completed build; recent, full-history and all 17 annual JSON reports also agree
+across the optimizations.
 
-A recent-window query against the full archive completed in 3.49 seconds at
-228,245,504 bytes maximum RSS after pruning obsolete definition snapshots. It
-retains the complete latest snapshot before the window and all snapshots inside
-it; the full JSON result exactly matches the established bounded-build report.
-Generated tests verify as-of equivalence, unobserved contracts and later first listings.
+The separately bounded all-root build beginning 2025-01-01 also passed checks. It
+decoded 626,505 UTC bars and 90,283,390 statistics messages in 311.48 seconds,
+with 925,581,312 bytes maximum RSS and 233,006,585 bytes of final Parquet.
+
+The default 60-reference-date report covers 2026-05-14 through 2026-08-10,
+excluding the partial final activity source day. Against the full archive it
+completed in 1.46 seconds at 228,163,584 bytes maximum RSS after pruning obsolete
+definition snapshots. It retains the complete latest snapshot before the window
+and all snapshots inside it. Its full JSON result exactly matches the bounded
+build's report. Generated tests verify as-of equivalence, unobserved contracts
+and first listings inside a window.
+
+A full-history activity report completed in 6.20 seconds at 1,063,370,752 bytes
+maximum RSS. These final analysis measurements use cached derived files. Annual
+reports cover all 17 archive years, with combined price availability and 95% selection CSVs. Actual per-root observation ranges, field
+availability, symbol/leg mappings, calendar gaps and daily target shortfalls remain
+inspectable in the local derived output. Browser checks cover the recent report,
+category/target changes, mobile layout and roots absent from early years. No browser
+network requests were needed. Market extracts, reports and machine-specific command
+receipts remain outside Git.
 
 The analysis projects only required columns, aggregates unknown/excluded counts
 lazily, and omits settlement-only listed rows from activity aggregation except for
-the final date's symbol/price mapping. It does not load the wide historical fact
-tables merely to sum volume.
-
-The first completed full-history build passed all artifact checks but reached
-2,346,926,080 bytes maximum RSS, exceeding the memory limit. Its coverage report
-materialized the entire wide unmapped table to count annual IDs. That query now
-aggregates only identity/year columns before collecting. On the same full archive,
-standalone coverage dropped from 1,643,380,736 to 563,036,160 bytes maximum RSS
-with identical output. An end-to-end full build is being rerun to verify the fix.
+the final date's symbol/price mapping. Root/year Zstd Parquet supports repeated
+analysis without decoding the batch archive again. Price completeness, aggregate
+volume capture and per-date attainment remain separate measures; these results do
+not certify exchange-wide market completeness or a root-specific trading calendar.
 
 ## Mac commands
 
@@ -131,8 +144,8 @@ directory. The operator can then run these exact commands from the checkout:
 
 Start with `--roots CL,NG` and an optional `--end` when inspecting a subset. Date
 filters still scan historical warmup and later source publications needed for
-reference-date revisions. A full 35-root offline real-data build is in progress,
-authorized by the owner after synthetic acceptance. Its data, analysis reports
+reference-date revisions. The full 35-root offline real-data build completed after
+the owner authorized real-data execution following synthetic acceptance. Its data, analysis reports
 and machine-specific execution receipt remain outside Git.
 
 The first historical execution stopped before publication on simultaneous
