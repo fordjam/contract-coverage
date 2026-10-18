@@ -149,20 +149,22 @@ def coverage(base: Path) -> dict:
         .sort("publisher_id", "instrument_id")
         .collect()
     )
-    for (year,), group in (
+    # Unknown instruments can dominate older archives. Aggregate the identity
+    # columns lazily rather than materializing all wide daily facts in Python.
+    for group in (
         scan(base, "daily_unmapped")
         .with_columns(pl.col("date").dt.year().alias("year"))
+        .group_by("year")
+        .agg(pl.struct("publisher_id", "instrument_id").n_unique().alias("unmapped_ids"))
+        .sort("year")
         .collect()
-        .partition_by("year", as_dict=True)
-        .items()
+        .iter_rows(named=True)
     ):
         rows.append(
             {
                 "root": "__unmapped__",
-                "year": year,
-                "unmapped_ids": group.select(
-                    pl.struct("publisher_id", "instrument_id").n_unique()
-                ).item(),
+                "year": group["year"],
+                "unmapped_ids": group["unmapped_ids"],
                 "source_status": "unattributed",
             }
         )

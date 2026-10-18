@@ -263,6 +263,7 @@ def process_root(
             writer.add("bars_utc", _date_filter(bars, start, end))
             writer.add("daily_unmapped", _date_filter(daily, start, end))
         writer.finish()
+        LOG.info("Completed root %s", root)
         return
     events = scan(raw, "statistics_events", root)
     observed_dates = events.select("date").unique().collect()["date"].to_list()
@@ -557,6 +558,7 @@ def build(
         with ThreadPoolExecutor(max_workers=workers) as executor:
             list(executor.map(run, [*sources.requested_roots, "__unmapped__"]))
         shutil.rmtree(raw)
+        LOG.info("Compacting annual Parquet partitions")
         compact(stage, OUTPUT_TABLES)
         metadata = {
             "format": "futures-ts",
@@ -585,12 +587,16 @@ def build(
                 for s in sources.files
             ],
         }
+        LOG.info("Writing output checksums")
         write_manifest(stage, metadata)
         from .validation import check
         from .coverage import coverage
 
+        LOG.info("Checking output invariants")
         check(stage)
+        LOG.info("Generating coverage evidence")
         coverage(stage)
+        LOG.info("Publishing completed build")
         if out.exists():
             if any(out.iterdir()):
                 raise BuildError("Output became nonempty during build")

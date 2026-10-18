@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import json
 from datetime import date
 
@@ -12,6 +13,27 @@ from futures_ts.pipeline import build
 from futures_ts.storage import scan
 from futures_ts.validation import check
 from tests.generate_fixtures import batch, definition, example, statistic, bar
+
+
+def test_unmapped_coverage_counts_distinct_identities_per_year(tmp_path):
+    from futures_ts.coverage import coverage
+
+    src, out = tmp_path / "src", tmp_path / "out"
+    batch(
+        src,
+        "statistics",
+        "statistics",
+        {
+            "2024-12-30": [statistic(99, 6, 10, day="2024-12-30")],
+            "2024-12-31": [statistic(99, 6, 20, day="2024-12-31")],
+            "2025-01-02": [statistic(i, 6, 30) for i in (99, 100)],
+        },
+    )
+    build(src, out, roots=("CL",))
+    assert coverage(out)["unmapped_ids"] == 2
+    with (out / "coverage.csv").open() as handle:
+        rows = [r for r in csv.DictReader(handle) if r["root"] == "__unmapped__"]
+    assert [(r["year"], r["unmapped_ids"]) for r in rows] == [("2024", "1"), ("2025", "2")]
 
 
 def test_complete_cli_build_coverage_and_check(tmp_path, capsys):

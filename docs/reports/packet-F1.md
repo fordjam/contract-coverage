@@ -31,8 +31,8 @@ not modified.
 
 ## Validation
 
-On Python 3.12: **82 pipeline tests passed**, plus **24 original selector tests**
-(106 total). Original JSON/CSV/policy smoke checks reproduce the committed example.
+On Python 3.12: **83 pipeline tests passed**, plus **24 original selector tests**
+(107 total). Original JSON/CSV/policy smoke checks reproduce the committed example.
 Ruff F/E9/B checks and the 100-column gate pass on new Python files. Wheel and
 source distribution are built offline, and the installed CLI is exercised with
 generated fixtures. The installed-wheel smoke test reuses already installed
@@ -49,6 +49,7 @@ ratio adjustment and invalid bridges, holidays/missing observations, cross-year
 ADV, degraded/missing/partial days, winter/summer 17:00 boundaries, root filtering,
 worker determinism, source immutability, corruption, unsafe manifests, output
 refusal, lazy file pruning and adapter scope limits.
+Unmapped coverage counts distinct publisher/instrument identities separately by year.
 Relative-contract tests also cover reversed/ambiguous sides, C3-C1 price direction,
 unranked activity in denominators, aggregate-vs-daily coverage, whole-catalog ranks,
 missing reference dates, synthetic completeness, contiguous-chain pair eligibility,
@@ -99,6 +100,13 @@ The analysis projects only required columns, aggregates unknown/excluded counts
 lazily, and omits settlement-only listed rows from activity aggregation except for
 the final date's symbol/price mapping. It does not load the wide historical fact
 tables merely to sum volume.
+
+The first completed full-history build passed all artifact checks but reached
+2,346,926,080 bytes maximum RSS, exceeding the memory limit. Its coverage report
+materialized the entire wide unmapped table to count annual IDs. That query now
+aggregates only identity/year columns before collecting. On the same full archive,
+standalone coverage dropped from 1,643,380,736 to 563,036,160 bytes maximum RSS
+with identical output. An end-to-end full build is being rerun to verify the fix.
 
 ## Mac commands
 
