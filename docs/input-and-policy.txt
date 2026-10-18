@@ -1,0 +1,272 @@
+CONTRACT COVERAGE — single-product futures support selection
+
+Implementation: contract_coverage.py (Python 3.11+, standard library only).
+No install, credentials, network, database, or application server is required.
+analyze(payload: dict) -> dict is importable and performs no file I/O.
+The supplied example is synthetic, not market data.
+
+QUICK START
+
+  cd contract-coverage
+  mkdir -p output
+  python3 contract_coverage.py --self-test
+  python3 contract_coverage.py --example --output output/example_input.json
+  python3 contract_coverage.py --input examples/input.json \
+    --output output/example_report.json --csv output/example_recommendations.csv --summary
+
+Use a Python 3.11+ executable for all commands (python3.11 if needed). The only source
+file needed is contract_coverage.py. The other tracked files are examples, documentation, and CI configuration.
+
+WHAT YOU SUPPLY
+
+One exchange and one product/instrument family per run. "Sessions" means
+exchange trading days. Each daily row is the day's traded volume for one actual
+outright contract month or one actual exchange-listed spread pair. A session
+is not a vendor login, intraday interval, or invented weekday calendar.
+
+1. Batch: exchange, family_id, ordered unique sessions, volume_basis,
+   volume_unit="contracts", instruments, daily. Use actual exchange sessions;
+   omissions cannot be discovered without a supplied complete calendar.
+2. Catalog: actual instrument_id, kind (outright/calendar_spread), listing_date,
+   last_trading_date. Outrights need delivery_month="YYYY-MM". Spreads need
+   front_leg_id and back_leg_id referencing cataloged actual outrights.
+   Optional product_id defaults to the actual instrument ID.
+3. Daily: trade_date, instrument_id, volume. Zero is confirmed zero; null is
+   unknown. Missing rows default to unknown. Optional open_interest and oi_date
+   are snapshots; oi_date defaults to trade_date and may not be a future date.
+4. Policy: choose a budget or coverage target. Without policy the report has
+   metrics and candidate rankings, with selection_status="policy_required".
+
+The complete examples/input.json shows this shape, including source timestamps.
+Volume_basis is contract_month_total, direct_outright, or unknown. Spread volume
+is always directly reported individual spread lots, never estimated from legs.
+Unknown outright basis prevents outright coverage claims. Outright volume and
+spread volume always have separate denominators, even under a shared budget.
+If a requested category has an unknown denominator or no known observations,
+selection reports insufficient_data and not_solved; any returned set covers
+only the measurable category contributions and is not a proved full solution.
+
+CHOOSE A PERIOD AND AN OUTRIGHT SUPPORT LIMIT
+
+For an outright-only decision (support at most two actual contract months):
+
+  python3 contract_coverage.py --input examples/input.json \
+    --policy examples/policy_outrights.json --start-date 2025-03-24 \
+    --analysis-date 2025-03-28 --output output/outrights_report.json \
+    --csv output/outrights_recommendations.csv --summary
+
+examples/policy_outrights.json is included and contains:
+
+  {"mode":"budget", "budgets":{"outrights":2,"spreads":0}}
+
+With default cost one, an outright budget of two means two contracts. For
+variable costs it means two cost units. Omitted categories have zero budget
+in separate-budget mode. A policy file replaces the entire input policy.
+
+start_date includes supplied trading days through analysis_date, inclusive.
+Without start_date, lookback_sessions defaults to the last 60 supplied sessions.
+analysis_date defaults to the last supplied session. Rolling 20/60 metrics use
+all supplied history through analysis_date, even before a custom period start.
+Short supplied history, short individual listings, unknown observations, or an
+undeclared/incomplete calendar produce partial rolling windows.
+
+ONE OVERALL PRODUCT SUPPORT CONSTRAINT
+
+The supplied synthetic example uses:
+
+  {"mode":"budget", "shared_budget":4,
+   "weights":{"outrights":1,"spreads":1}, "require_spread_legs":true}
+
+Every actual outright/spread costs one by default. A selected spread adds its
+two required actual legs; shared legs are counted only once. Weights explicitly
+express category priorities. The budget objective is:
+
+  outright_weight * known_outright_volume_coverage
+    + spread_weight * known_direct_spread_volume_coverage
+
+There is no combined market-volume percentage. Separate category budgets may
+also be supplied alongside shared_budget to impose category caps. Weights
+default to one per category only when no shared_budget is requested.
+
+Example result over five supplied trading days:
+
+  A   C1       ADV 100   core                 support
+  B   C2       ADV   0   confirmed_inactive   dependency_only (AB's leg)
+  C   C3       ADV  40   low_priority         do_not_support (capacity)
+  D   C4       ADV 180   core                 support
+  AB  S(1,2)   ADV  80   core                 support
+  BC  S(2,3)   ADV  10   low_priority         do_not_support (capacity)
+
+Support cost: 4. Outright known-volume coverage: 87.5% (1400/1600).
+Direct spread known-volume coverage: 88.9% (400/450).
+ADV20 and ADV60 are partial because only five trading days were supplied.
+The selected outright months need not form a contiguous C1..Cn chain.
+
+COVERAGE TARGET MODE
+
+  {"mode":"target", "targets":{"outrights":0.9,"spreads":0.8},
+   "require_spread_legs":true}
+
+Targets are fractions from zero to one. This minimizes support cost, then
+instrument count. It returns unmet target fractions when a target cannot be
+met with eligible current instruments, including when historically active
+contracts have expired. Coverage is against all supplied known volume in the
+period, including that of expired contracts. Optional budgets/shared_budget
+and resource capacities can further constrain a target-mode decision.
+
+ACTIVITY AND ELIGIBILITY CONTROLS
+
+All effective defaults appear in the JSON report. Default minimum ADV and
+positive frequency are zero; positive known activity is still required for
+activity selection. Default min_data_completeness is 1.0. With partial data,
+positive frequency has lower/upper bounds and an observed-only frequency.
+min_positive_frequency applies to the conservative lower bound. You can
+explicitly lower min_data_completeness, but exclusions with unknown activity
+remain labeled insufficient_data instead of confirmed inactive.
+
+Optional controls:
+  min_oi, max_oi_age_days: OI missing/stale under a required test is insufficient.
+  require_delivery_eligible, require_notice_eligible: unknown flags are
+    insufficient when required. Explicit false eligibility prohibits support.
+  min_days_to_last_trade: date-based delivery cutoff (calendar days).
+  exclude_on_or_after_first_notice: requires supplied first_notice_date.
+  require_spread_legs: default false; inactive required legs can be dependencies
+    if they meet data/OI/restriction requirements. ADV/frequency thresholds are
+    waived only for dependency legs. Missing/prohibited legs block the spread.
+  costs: {"ACTUAL_ID":2.5}; unspecified actual instruments cost one.
+  capacities: {"connections":4}; resource_usage:
+    {"ACTUAL_ID":{"connections":1}}. Unspecified consumption is zero.
+  conditional_rules: [{"name":"June condition", "delivery_months":[6],
+    "min_known_sessions":20, "min_years":2}]. These explicitly label selected
+    qualified instruments seasonal/conditional and report the observed evidence.
+    No seasonality is inferred from a delivery-month table alone.
+
+Instrument flags may be static delivery_eligible/notice_eligible or dated:
+  "eligibility":[{"date":"2025-03-24", "delivery_eligible":true,
+                  "available_at":"2025-03-24T12:00:00Z"}]
+
+HISTORICAL IDENTITIES AND MISSING DATA
+
+Every supplied date's chain includes listed zero and unknown-volume contracts.
+Active lifecycle is listing_date through last_trading_date inclusive. Expiry
+ordering uses explicit expiry_date if supplied, else last_trading_date; both
+are preserved. Ranks use expiry ordering, delivery month, then actual ID.
+Spreads preserve front/back orientation; expiry ordering may yield S(2,1)
+even when the front delivery month precedes the back delivery month. No symbols
+are parsed to guess months, IDs, or legs. Only same-family one-for-one spreads
+are supported. Unmapped listed spreads remain visible and are not selected.
+
+Relative C1 history may contain several actual instruments as the chain rolls.
+Spread relative summaries keep actual instrument IDs separate even when a
+product code or relative label is shared. Recommendations select actual
+instruments listed at analysis_date, with their current relative labels.
+
+metadata.catalog_complete, sessions_complete, reports_complete, and
+absent_rows_mean_zero default to false. To convert absent rows to zero, BOTH
+reports_complete and absent_rows_mean_zero must be true. Explicit null is
+always unknown. Alternatively declare omissions by date/category/instrument:
+
+  "report_declarations":[{"trade_date":"2025-03-24", "category":"outrights",
+    "instrument_ids":["A","B"], "complete":true, "absent_rows_mean_zero":true}]
+
+Put report_declarations inside metadata. Omit instrument_ids to apply to all
+cataloged instruments of that date/category. Every conversion is recorded.
+An incomplete catalog/calendar still allows analysis of the supplied universe;
+the report states that coverage limitation explicitly.
+
+Without instruments, provide instrument_snapshots, each with trade_date,
+complete=true, and a full instruments list in the same metadata schema.
+The latest supplied snapshot on/before each date is used, with its source date
+preserved. Earlier sessions without a snapshot cannot be reconstructed; an
+activity row outside the reconstructable catalog is rejected. Carried snapshots
+do not establish complete daily catalog coverage between snapshot dates.
+
+NORMALIZATION, REVISIONS, AND DECISION TIME
+
+Optional canonical-to-source key mapping:
+  "field_mapping":{"catalog":{"instrument_id":"symbol"},
+                   "daily":{"instrument_id":"symbol","volume":"qty"}}
+
+Optional normalization:
+  "normalization":{"date_formats":["%d/%m/%Y"], "thousands_separator":",",
+    "decimal_separator":".", "null_markers":["NA",""],
+    "unit_conversions":{"mini_contracts":0.1}}
+
+ISO YYYY-MM-DD is accepted by default. Dates are not guessed. Source numeric
+separators/null markers/conversions must be explicitly configured. Daily
+source_volume_unit selects a configured conversion to normalized contracts;
+volume_unit at batch level must be contracts. direct_outright_volume may be
+supplied separately; it is never inferred from contract-month totals.
+
+Observation duplicates are rejected by default. To choose the latest source
+report, set revision_rule="latest_available" and supply distinct ISO timezone
+timestamps in available_at or published_at. Conflicting sources are rejected;
+reconcile multiple vendors explicitly upstream. Catalog metadata may have
+effective_from/effective_to dates, and revisions of the same effective version
+use the same explicit revision rule. All catalog versions and resolved daily
+revision provenance remain in the output.
+
+policy.decision_time is an ISO timestamp with timezone. For the historical
+decision, only observations through analysis_date and reports/catalog versions
+available by decision_time are used. Both available_at and published_at, when
+present, must be before the cutoff. Missing timestamps or no cutoff explicitly
+make point-in-time correctness unverified. Future-session observations are
+evaluated separately under forward_validation and never enter the decision
+window or candidate activity. Calendar/metadata declarations are trusted inputs.
+
+SELECTION LIMITS AND OUTPUTS
+
+Independent equal-cost categories use an exact sorted-prefix algorithm, even
+for long outright chains. Coupled/variable-cost cases enumerate activity sets
+with shared-leg closure up to exact_search_limit (default 18, maximum 24).
+Beyond that limit, selection_status and optimality are not_solved unless you
+explicitly set allow_heuristic=true. The heuristic is labeled heuristic and may
+miss a better feasible set; its result never claims an optimum. Proven results
+are optima only for the supplied observed universe and effective constraints.
+
+The JSON report includes policies, period, completeness, category denominators,
+historical/current chain and spread mappings, actual/relative/rolling metrics,
+delivery-month and expiry-band samples, recommendations/reasons, selected
+actual instruments, supporting legs, costs, capacity usage, unmet targets,
+coverage-versus-count curves, contiguous-chain comparisons, provenance, and
+optional forward validation. Coverage curves show the best weighted-category
+coverage at each feasible support count under the current constraints; they
+are heuristic samples when the solver is heuristic.
+
+Instrument ADV averages known daily volumes, including confirmed zeros.
+Category ADV averages complete daily aggregate product volume, excluding days
+with an unknown constituent. Category total_known_volume retains every supplied
+known constituent volume, including partial days, for the explicitly bounded
+known-volume coverage denominator. Separate counts identify incomplete days
+and missing instrument/session observations. OI is reported per instrument;
+no category aggregate OI is invented. Pooled delivery/expiry-band sample counts
+are instrument-session observations, not independent seasonal evidence.
+
+The CSV contains current actual IDs, product IDs, current relative labels,
+metrics, labels, support actions, individual costs, reasons, and data confidence.
+The readable --summary prints to stderr and leaves JSON stdout parseable.
+
+CLI precedence, highest first:
+  1. Individual CLI overrides (provided keys only)
+  2. --policy JSON (replaces input policy)
+  3. Input policy, then documented effective defaults
+
+--start-date takes precedence over --lookback-sessions if both are in effect.
+Run --help to see overrides. Invalid input returns exit code 2 with an error;
+self-test failures return 1; successful runs return 0.
+
+IMPORT EXAMPLE
+
+  import json
+  from contract_coverage import analyze
+  with open("examples/input.json") as f:
+      payload = json.load(f)
+  report = analyze(payload)
+  print(report["selected_instruments"])
+  print(report["supporting_legs"])
+
+DATA ACQUISITION
+
+Supply your vendor's daily history and lifecycle catalog to get real product
+results. This tool does not fetch exchange data or guess missing instrument
+identities. Raw web pages and PDFs must be normalized upstream to this schema.

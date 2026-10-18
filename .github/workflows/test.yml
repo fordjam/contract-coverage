@@ -1,0 +1,64 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Python ${{ matrix.python }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.11', '3.12', '3.13']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Embedded regression suite
+        run: python contract_coverage.py --self-test
+      - name: JSON, CSV and policy smoke checks
+        shell: python
+        run: |
+          import csv
+          import json
+          import subprocess
+          import sys
+          from pathlib import Path
+          from tempfile import TemporaryDirectory
+
+          with TemporaryDirectory() as directory:
+              output = Path(directory)
+              report = output / 'report.json'
+              exported = output / 'recommendations.csv'
+              subprocess.run([sys.executable, 'contract_coverage.py',
+                  '--input', 'examples/input.json', '--output', str(report),
+                  '--csv', str(exported), '--summary'], check=True)
+              data = json.loads(report.read_text(encoding='utf-8'))
+              assert data['selected_instruments'] == ['A', 'AB', 'D']
+              assert data['supporting_legs'] == ['B']
+              assert data['optimality'] == 'proven'
+              with exported.open(newline='', encoding='utf-8') as f:
+                  actual = list(csv.DictReader(f))
+              with open('examples/expected_recommendations.csv', newline='', encoding='utf-8') as f:
+                  expected = list(csv.DictReader(f))
+              assert actual == expected, 'Synthetic CSV fixture changed'
+              subprocess.run([sys.executable, 'contract_coverage.py',
+                  '--input', 'examples/input.json', '--policy', 'examples/policy_outrights.json',
+                  '--start-date', '2025-03-24', '--analysis-date', '2025-03-28',
+                  '--output', str(report)], check=True)
+              assert json.loads(report.read_text())['selected_instruments'] == ['A', 'D']
+              subprocess.run([sys.executable, 'contract_coverage.py',
+                  '--input', 'examples/input.json', '--policy', 'examples/policy_target.json',
+                  '--output', str(report)], check=True)
+              assert json.loads(report.read_text())['selection']['solution']['targets_met']

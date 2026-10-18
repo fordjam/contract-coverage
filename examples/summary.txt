@@ -1,0 +1,27 @@
+SYNTHETIC EXAMPLE RESULTS — replace example data with supplied vendor history.
+
+OUTRIGHT SUPPORT LIMIT: TWO
+EXAMPLE/TEST: 2025-03-24 through 2025-03-28 (5 trading days)
+Selection: selected; optimality: proven; cost: 2
+Actual ID  Relative   ADV        Label                 Action
+D          C4         180.00     core                  support
+A          C1         100.00     core                  support
+C          C3         40.00      low_priority          do_not_support
+B          C2         0.00       confirmed_inactive    do_not_support
+AB         S(1,2)     80.00      low_priority          do_not_support
+BC         S(2,3)     10.00      low_priority          do_not_support
+outrights: 87.5% of supplied known volume (contract_month_total)
+spreads: 0.0% of supplied known volume (direct_spread)
+
+SHARED SUPPORT BUDGET: FOUR, WITH REQUIRED SPREAD LEGS
+EXAMPLE/TEST: 2025-03-24 through 2025-03-28 (5 trading days)
+Selection: selected; optimality: proven; cost: 4
+Actual ID  Relative   ADV        Label                 Action
+D          C4         180.00     core                  support
+A          C1         100.00     core                  support
+C          C3         40.00      low_priority          do_not_support
+B          C2         0.00       confirmed_inactive    dependency_only
+AB         S(1,2)     80.00      core                  support
+BC         S(2,3)     10.00      low_priority          do_not_support
+outrights: 87.5% of supplied known volume (contract_month_total)
+spreads: 88.9% of supplied known volume (direct_spread)

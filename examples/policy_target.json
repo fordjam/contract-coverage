@@ -1,0 +1,5 @@
+{
+  "mode": "target",
+  "targets": {"outrights": 0.9, "spreads": 0.8},
+  "require_spread_legs": true
+}

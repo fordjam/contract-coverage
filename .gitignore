@@ -1,0 +1,26 @@
+# Local vendor data and derived analysis must be deliberately reviewed before sharing.
+/data/
+/private/
+/output/
+/reports/
+/.env
+/.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Python and editor artifacts.
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.DS_Store
+.idea/
+.vscode/
+.coverage
+htmlcov/
+
+# Default command outputs accidentally written at the repository root.
+/*_report.json
+/*_recommendations.csv
