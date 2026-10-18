@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "futures-ts"
+version = "0.1.0"
+description = "Offline Databento daily futures time series and coverage"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "databento>=0.86,<0.87",
+  "databento-dbn>=0.69,<0.70",
+  "numpy>=1.26,<3",
+  "polars>=1.44,<1.45",
+  "tzdata>=2025.1",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8,<10", "zstandard>=0.23,<1"]
+
+[project.scripts]
+futures-ts = "futures_ts.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "."]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"

@@ -86,7 +86,38 @@ and [expected CSV](examples/expected_recommendations.csv).
   constraints. Unknown denominators leave the full objective unresolved.
 
 The importable `analyze(payload: dict) -> dict` function performs no file I/O or
-network access. The implementation and self-tests remain in **one Python file**.
+network access. The selection implementation and its self-tests remain in **one Python file**.
+
+## Optional Databento data preparation: futures-ts
+
+The separate `src/futures_ts/` package builds daily futures tables from local
+GLBX.MDP3 DBN batch downloads. It requires Python 3.12 and the dependencies in
+`pyproject.toml`; the standalone selection script above still requires only
+Python 3.11 and the standard library.
+
+```sh
+python3.12 -m pip install '.[test]'
+python3.12 -m pytest tests/ -q
+python3.12 -m tests.generate_fixtures --out out/synthetic-source
+futures-ts build --src out/synthetic-source --out out/synthetic-series --roots CL
+futures-ts coverage --out out/synthetic-series
+futures-ts check --out out/synthetic-series
+```
+
+Install from an approved local wheelhouse with pip's `--no-index --find-links`
+options when offline. Builds and tests do not contact Databento, require an API
+key, or load environment files. The generator creates synthetic DBN fixtures;
+binary fixtures, Parquet and output directories are ignored by Git.
+
+See the [implementation plan](docs/packet-F1-plan.md),
+[data contract and operator guide](docs/futures-ts.md), and
+[packet report](docs/reports/packet-F1.md). UTC-day bars remain separate from
+session statistics. Unknown identities, preliminary/theoretical settlements,
+missing volume, incomplete calendars and excluded structures stay explicit.
+
+The adapter to `analyze` uses cleared volume only and requires an explicit
+lifecycle-basis choice. It never fills absent spread cleared volume from UTC
+bars; such selection problems can correctly remain unresolved.
 
 ## Development and future publication
 

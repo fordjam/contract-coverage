@@ -1,0 +1,5 @@
+include README.md CONTRIBUTING.md contract_coverage.py
+recursive-include docs *.md *.txt
+recursive-include examples *.json *.csv *.txt
+recursive-include tests *.py
+global-exclude *.dbn* *.parquet *.arrow *.pyc
