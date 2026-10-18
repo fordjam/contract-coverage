@@ -200,6 +200,30 @@ def _volume_counts(base: Path, table: str, root: str, start: date, end: date) ->
     )
 
 
+def read_catalog(base: Path, root: str, start: date, end: date) -> pl.DataFrame:
+    query = scan(base, "instruments", root)
+    baseline = query.filter(pl.col("date") <= start).select(pl.col("date").max()).collect().item()
+    # Earlier snapshots cannot govern any date in this window. Keep the complete
+    # preceding snapshot, including unobserved instruments, and all later ones.
+    return (
+        query.filter(pl.col("date").is_between(baseline or start, end))
+        .select(
+            "date",
+            "contract_key",
+            "raw_symbol",
+            "instrument_class",
+            "activation",
+            "expiration",
+            "deleted",
+            "calendar_structure",
+            "near_key",
+            "far_key",
+            "listed_price_sign",
+        )
+        .collect()
+    )
+
+
 def front_chain_curve(rows: list[dict]) -> list[dict]:
     ranked = [
         (max(int(c[1:]) for c in r["label"].split("-")), r) for r in rows if r["label"] is not None
@@ -318,24 +342,7 @@ def analyze_ranks(
         spread = _read(base, "daily_spread", root, start, end)
         observed = set(outright["date"].to_list()) | set(spread["date"].to_list())
         days = sorted(observed | set(session_dates) | {end})
-        instruments = (
-            scan(base, "instruments", root)
-            .filter(pl.col("date") <= end)
-            .select(
-                "date",
-                "contract_key",
-                "raw_symbol",
-                "instrument_class",
-                "activation",
-                "expiration",
-                "deleted",
-                "calendar_structure",
-                "near_key",
-                "far_key",
-                "listed_price_sign",
-            )
-            .collect()
-        )
+        instruments = read_catalog(base, root, start, end)
         ranks = rank_catalog(instruments, days)
         availability.extend(series_availability(outright, ranks, root, session_dates))
         latest = end

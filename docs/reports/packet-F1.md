@@ -31,8 +31,8 @@ not modified.
 
 ## Validation
 
-On Python 3.12: **83 pipeline tests passed**, plus **24 original selector tests**
-(107 total). Original JSON/CSV/policy smoke checks reproduce the committed example.
+On Python 3.12: **84 pipeline tests passed**, plus **24 original selector tests**
+(108 total). Original JSON/CSV/policy smoke checks reproduce the committed example.
 Ruff F/E9/B checks and the 100-column gate pass on new Python files. Wheel and
 source distribution are built offline, and the installed CLI is exercised with
 generated fixtures. The installed-wheel smoke test reuses already installed
@@ -95,6 +95,12 @@ selections, symbol mappings, data availability, excluded structures and unmapped
 activity remain with the local derived output, outside Git. Browser checks of the
 real report passed without external requests. These measurements describe this
 specific bounded run, not the full-history run still being validated.
+
+A recent-window query against the full archive completed in 3.49 seconds at
+228,245,504 bytes maximum RSS after pruning obsolete definition snapshots. It
+retains the complete latest snapshot before the window and all snapshots inside
+it; the full JSON result exactly matches the established bounded-build report.
+Generated tests verify as-of equivalence, unobserved contracts and later first listings.
 
 The analysis projects only required columns, aggregates unknown/excluded counts
 lazily, and omits settlement-only listed rows from activity aggregation except for

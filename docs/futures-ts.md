@@ -204,6 +204,20 @@ The analysis command replaces its own text reports and does not modify market
 tables or source batches. Run `check` to verify build artifacts before analyzing an
 existing copied build.
 
+To inspect an individual year, use explicit dates and preserve the generated
+`analysis` directory before analyzing another window:
+
+```sh
+futures-ts analyze --out "$FUTURES_OUTPUT_ROOT" \
+  --start 2025-01-01 --end 2025-12-31 --target 0.95
+mv "$FUTURES_OUTPUT_ROOT/analysis" "$FUTURES_OUTPUT_ROOT/analysis-2025"
+```
+
+`series_availability.csv` separates reference dates from eligible catalog dates.
+Compare annual results before choosing a historical analysis period: a volume
+selection can meet 95% while its settlement history has gaps. Reference dates are
+observed across the supplied archive, not a certified root-specific exchange calendar.
+
 ### Columnar access
 
 ```python

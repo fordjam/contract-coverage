@@ -12,11 +12,46 @@ from futures_ts.rank_coverage import (
     label_activity,
     front_chain_curve,
     rank_catalog,
+    read_catalog,
     series_availability,
     summarize_activity,
 )
 from futures_ts.rank_report import render_report
 from tests.generate_fixtures import bar, batch, definition, example, statistic
+
+
+def test_catalog_window_pruning_preserves_asof_ranks_and_unobserved_contracts(tmp_path):
+    from futures_ts.storage import Writer
+
+    rows = [
+        {
+            "date": day,
+            "root": "CL",
+            "contract_key": key,
+            "raw_symbol": key,
+            "instrument_class": "F",
+            "activation": date(2020, 1, 1),
+            "expiration": expiry,
+            "deleted": False,
+        }
+        for day, keys in [
+            (date(2023, 1, 1), [("old", date(2023, 12, 31))]),
+            (date(2024, 12, 1), [("a", date(2025, 1, 2)), ("b", date(2025, 3, 1))]),
+            (date(2025, 1, 3), [("b", date(2025, 3, 1)), ("c", date(2025, 4, 1))]),
+            (date(2025, 2, 1), [("future", date(2025, 5, 1))]),
+        ]
+        for key, expiry in keys
+    ]
+    writer = Writer(tmp_path)
+    writer.rows("instruments", rows)
+    writer.finish()
+    days = [date(2025, 1, 2), date(2025, 1, 3)]
+    selected = read_catalog(tmp_path, "CL", days[0], days[-1])
+    assert set(selected["date"]) == {date(2024, 12, 1), date(2025, 1, 3)}
+    expected = rank_catalog(frame(rows, SCHEMAS["instruments"]), days).sort("date", "rank")
+    assert rank_catalog(selected, days).sort("date", "rank").equals(expected)
+    # A root first defined inside the window has no invented preceding catalog.
+    assert read_catalog(tmp_path, "CL", date(2022, 1, 1), date(2023, 1, 2)).height == 1
 
 
 def test_aggregate_selection_and_daily_shortfalls():
