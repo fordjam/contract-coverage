@@ -39,7 +39,8 @@ footer{margin-top:30px;color:var(--muted)}@media(max-width:600px){main{padding:2
 <button id="more" type="button" hidden>Show all series</button>
 <h2>Price-series completeness</h2>
 <p id="availability-basis" class="muted"></p>
-<div class="overflow"><table><thead><tr><th>Series</th><th class="right">Reference dates</th>
+<div class="overflow"><table><thead><tr><th>Series</th><th>Actual contracts</th>
+<th class="right">Reference dates</th>
 <th class="right">Eligible catalog dates</th>
 <th class="right">Settlement</th><th class="right">Cleared volume</th><th class="right">Open interest</th>
 <th>Settlement threshold</th></tr></thead><tbody id="availability"></tbody></table></div>
@@ -110,6 +111,8 @@ function draw(){
  });
  el('more').hidden=rows.length<=25;el('more').textContent=expanded?'Show top 25':'Show all '+rows.length+' series';
  const availability=el('availability');availability.replaceChildren();
+ const outrightMap=new Map(d.contracts.filter(x=>x.root===r&&x.category==='outrights')
+  .map(x=>[x.label,x.symbol]));
  const availabilityCategory=c==='outrights'?'outrights':'synthetic_spreads';
  el('availability-basis').textContent=c==='outrights'?
  'Availability on observed archive sessions. First six ranks shown; a smaller catalog count means some dates cannot be mapped.':
@@ -117,6 +120,9 @@ function draw(){
  d.availability.filter(x=>x.root===r&&x.category===availabilityCategory&&
   (c!=='outrights'||Number(x.label.slice(1))<=6)).forEach(x=>{
    const tr=document.createElement('tr');cell(tr,x.label.replaceAll('-','−'));
+   const actual=x.label.split('-').map(label=>outrightMap.get(label));
+   cell(tr,actual.every(Boolean)?actual.join(' − '):'No eligible mapping at '+q.contract_mapping_date,
+    'symbols');
    cell(tr,x.expected_dates,'right numbers');cell(tr,x.eligible_dates,'right numbers');
    cell(tr,pct(x.settlement_fraction),'right numbers');
    cell(tr,pct(x.cleared_volume_fraction),'right numbers');
