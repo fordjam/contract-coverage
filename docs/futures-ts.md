@@ -162,6 +162,7 @@ can remain valid. Latest settlement flags remain available on the continuous row
 ### Relative-contract report
 
 `futures-ts analyze` writes `analysis/report.html`, a self-contained offline view,
+and `summary.md`, a compact all-root review,
 plus `rank_coverage.csv`, `recommendations.csv`, `contracts.csv`,
 `series_availability.csv`, `source_quality.csv` and `analysis.json`.
 `front_chain.csv` compares contiguous front chains using the same denominators.

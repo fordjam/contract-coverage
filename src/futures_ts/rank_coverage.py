@@ -162,7 +162,42 @@ def summarize_activity(
 
 
 def _read(base: Path, table: str, root: str, start: date, end: date) -> pl.DataFrame:
-    return scan(base, table, root).filter(pl.col("date").is_between(start, end)).collect()
+    query = scan(base, table, root).filter(pl.col("date").is_between(start, end))
+    columns = ["date", "contract_key", "settlement", *METRICS]
+    if table == "daily_spread":
+        # Settlement-only calendar catalogs dominate the archive. Activity summaries
+        # need traded/statistic rows and only the final date's price quotations.
+        query = query.filter(
+            (pl.col("kind") == "listed")
+            & (
+                pl.any_horizontal([pl.col(m).is_not_null() for m in METRICS])
+                | (pl.col("date") == end)
+            )
+        )
+        columns.extend(
+            [
+                "kind",
+                "near_key",
+                "far_key",
+                "near_rank",
+                "far_rank",
+                "raw_symbol",
+                "listed_price_sign",
+            ]
+        )
+    else:
+        columns.append("close")
+    return query.select(columns).collect()
+
+
+def _volume_counts(base: Path, table: str, root: str, start: date, end: date) -> dict:
+    return (
+        scan(base, table, root)
+        .filter(pl.col("date").is_between(start, end))
+        .select(pl.len().alias("rows"), pl.col("volume").sum().alias("volume"))
+        .collect()
+        .row(0, named=True)
+    )
 
 
 def front_chain_curve(rows: list[dict]) -> list[dict]:
@@ -283,7 +318,24 @@ def analyze_ranks(
         spread = _read(base, "daily_spread", root, start, end)
         observed = set(outright["date"].to_list()) | set(spread["date"].to_list())
         days = sorted(observed | set(session_dates) | {end})
-        instruments = scan(base, "instruments", root).filter(pl.col("date") <= end).collect()
+        instruments = (
+            scan(base, "instruments", root)
+            .filter(pl.col("date") <= end)
+            .select(
+                "date",
+                "contract_key",
+                "raw_symbol",
+                "instrument_class",
+                "activation",
+                "expiration",
+                "deleted",
+                "calendar_structure",
+                "near_key",
+                "far_key",
+                "listed_price_sign",
+            )
+            .collect()
+        )
         ranks = rank_catalog(instruments, days)
         availability.extend(series_availability(outright, ranks, root, session_dates))
         latest = end
@@ -349,7 +401,7 @@ def analyze_ranks(
                     "label_settlement": row["label_settlement"],
                 }
             )
-        excluded = _read(base, "daily_excluded", root, start, end)
+        excluded = _volume_counts(base, "daily_excluded", root, start, end)
         q = quality.filter((pl.col("root") == root) & pl.col("date").is_between(start, end))
         root_quality.append(
             {
@@ -365,11 +417,11 @@ def analyze_ranks(
                     "date"
                 ].n_unique(),
                 "partial_source_dates": q.filter(pl.col("partial_day"))["date"].n_unique(),
-                "excluded_rows": excluded.height,
-                "excluded_utc_volume": int(excluded["volume"].sum()) if excluded.height else 0,
+                "excluded_rows": excluded["rows"],
+                "excluded_utc_volume": int(excluded["volume"]),
             }
         )
-    unknown = _read(base, "daily_unmapped", "__unmapped__", start, end)
+    unknown = _volume_counts(base, "daily_unmapped", "__unmapped__", start, end)
     total_bar_volume = (
         scan(base, "bars_utc")
         .filter(pl.col("date").is_between(start, end))
@@ -377,7 +429,7 @@ def analyze_ranks(
         .collect()
         .item()
     )
-    unknown_volume = int(unknown["volume"].sum()) if unknown.height else 0
+    unknown_volume = int(unknown["volume"])
     result = {
         "start": str(start),
         "end": str(end),
@@ -390,7 +442,7 @@ def analyze_ranks(
         "unknown_volume": unknown_volume,
         "total_utc_bar_volume": total_bar_volume,
         "unknown_volume_fraction": unknown_volume / total_bar_volume if total_bar_volume else None,
-        "unmapped_rows": unknown.height,
+        "unmapped_rows": unknown["rows"],
         "archive_last_source_date": str(activity_quality["date"].max()),
         "archive_partial_source_dates": sorted(str(d) for d in partial),
         "root_quality": root_quality,
@@ -417,9 +469,10 @@ def analyze_ranks(
         csv = pl.DataFrame(flat, infer_schema_length=None).write_csv() if flat else ""
         atomic_text(output / f"{name}.csv", csv)
     atomic_text(output / "analysis.json", json.dumps(result, default=str, allow_nan=False))
-    from .rank_report import render_report
+    from .rank_report import render_report, render_summary
 
     atomic_text(output / "report.html", render_report(result))
+    atomic_text(output / "summary.md", render_summary(result))
     return {
         "status": "ok",
         "report": str(output / "report.html"),

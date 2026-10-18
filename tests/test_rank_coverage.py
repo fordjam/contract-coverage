@@ -137,6 +137,7 @@ def test_analysis_cli_writes_offline_report_and_machine_readable_selection(tmp_p
     assert any(r["label"] == "C1" for r in content["ranked"])
     assert any(r["symbol"] == "CL-SYN-1" for r in content["contracts"])
     assert (out / "analysis/recommendations.csv").exists()
+    assert "C3-C1" in (out / "analysis/summary.md").read_text()
     html = (out / "analysis/report.html").read_text()
     assert "fetch(" not in html
     assert "__ANALYSIS_DATA__" not in html

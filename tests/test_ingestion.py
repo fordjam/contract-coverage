@@ -163,3 +163,16 @@ def test_tick_precision_does_not_resolve_other_flag_conflicts(flags):
     rows = [event(70, flags=6), event(71, flags=flags)]
     with pytest.raises(BuildError, match="Conflicting statistic"):
         reduce_statistics(frame(rows, EVENT).lazy())
+
+
+def test_later_tick_settlement_wins_over_older_precise_value():
+    rows = [event(91.23456, flags=2), event(92.23, flags=6, sequence=1)]
+    row = reduce_statistics(frame(rows, EVENT).lazy()).row(0, named=True)
+    assert row["settlement"] == 92.23
+    assert row["settlement_flags"] == 6
+
+
+def test_tick_representation_does_not_hide_conflicting_precise_prices():
+    rows = [event(91.23, flags=6), event(91.23456, flags=2), event(91.23457, flags=2)]
+    with pytest.raises(BuildError, match="Conflicting statistic"):
+        reduce_statistics(frame(rows, EVENT).lazy())

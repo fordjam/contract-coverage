@@ -31,8 +31,8 @@ not modified.
 
 ## Validation
 
-On Python 3.12: **79 pipeline tests passed**, plus **24 original selector tests**
-(103 total). Original JSON/CSV/policy smoke checks reproduce the committed example.
+On Python 3.12: **81 pipeline tests passed**, plus **24 original selector tests**
+(105 total). Original JSON/CSV/policy smoke checks reproduce the committed example.
 Ruff F/E9/B checks and the 100-column gate pass on new Python files. Wheel and
 source distribution are built offline, and the installed CLI is exercised with
 generated fixtures. The installed-wheel smoke test reuses already installed
@@ -77,6 +77,28 @@ python3.12 contract_coverage.py --self-test
 python3.12 -m tests.benchmark_synthetic --work out/memory-catalog --mode catalog
 python3.12 -m tests.benchmark_synthetic --work out/memory-revisions --scale 5
 ```
+
+## Real-data execution
+
+The authorized, explicitly bounded build of all 35 roots from 2025-01-01 through
+the archive end completed and passed invariant/checksum validation. It decoded
+626,505 UTC bars and 90,283,390 statistics messages, retaining 9,481,711 reduced
+candidate events before reference-session reduction. The build took 311.48 seconds
+with two workers; maximum process RSS was 925,581,312 bytes, below 2 GB. Final
+Parquet tables occupy 233,006,585 bytes. A second `check` after report creation passed.
+
+The recent 60-reference-date activity report completed in 1.04 seconds at
+149,323,776 bytes maximum RSS. It covers 2026-05-14 through 2026-08-10, excluding the
+partial final activity source day. Both HTML and Markdown reports, machine-readable
+selections, symbol mappings, data availability, excluded structures and unmapped
+activity remain with the local derived output, outside Git. Browser checks of the
+real report passed without external requests. These measurements describe this
+specific bounded run, not the full-history run still being validated.
+
+The analysis projects only required columns, aggregates unknown/excluded counts
+lazily, and omits settlement-only listed rows from activity aggregation except for
+the final date's symbol/price mapping. It does not load the wide historical fact
+tables merely to sum volume.
 
 ## Mac commands
 
