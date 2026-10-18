@@ -130,12 +130,15 @@ def check(base: Path) -> dict:
         ~pl.col("kind").is_in(["listed", "synthetic"])
         | pl.col("near_key").is_null()
         | pl.col("far_key").is_null()
+        | pl.col("listed_price_sign").is_null()
+        | ~pl.col("listed_price_sign").is_in([-1, 1])
         | ~pl.col("calendar_spread"),
         "Invalid calendar spread",
     )
     reject(
         spread.filter(pl.col("kind") == "synthetic"),
         pl.col("volume").is_not_null()
+        | (pl.col("listed_price_sign") != 1)
         | pl.col("cleared_volume").is_not_null()
         | pl.col("open_interest").is_not_null(),
         "Synthetic spreads invent activity",

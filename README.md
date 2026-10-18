@@ -102,6 +102,7 @@ python3.12 -m tests.generate_fixtures --out out/synthetic-source
 futures-ts build --src out/synthetic-source --out out/synthetic-series --roots CL
 futures-ts coverage --out out/synthetic-series
 futures-ts check --out out/synthetic-series
+futures-ts analyze --out out/synthetic-series --lookback 60 --target 0.95
 ```
 
 Install from an approved local wheelhouse with pip's `--no-index --find-links`
@@ -118,6 +119,12 @@ missing volume, incomplete calendars and excluded structures stay explicit.
 The adapter to `analyze` uses cleared volume only and requires an explicit
 lifecycle-basis choice. It never fills absent spread cleared volume from UTC
 bars; such selection problems can correctly remain unresolved.
+
+The offline `analyze` report maps C1/C2 and C3-C1 labels to actual dated contracts,
+compares 90/95/99% known-activity selections, and shows daily shortfalls and price
+history completeness. Outright cleared volume and listed-calendar UTC volume remain
+separate measures. Open the generated `analysis/report.html`; CSV/JSON results are
+beside it. Synthetic spread prices never acquire invented volume or OI.
 
 ## Development and future publication
 

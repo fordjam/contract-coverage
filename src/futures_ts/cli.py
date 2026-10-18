@@ -37,6 +37,12 @@ def main(argv: list[str] | None = None) -> int:
     for command in ("coverage", "check"):
         sub = commands.add_parser(command)
         sub.add_argument("--out", required=True, type=Path)
+    analysis = commands.add_parser("analyze", help="Relative C1/C2 and calendar activity coverage")
+    analysis.add_argument("--out", required=True, type=Path)
+    analysis.add_argument("--start", type=date.fromisoformat)
+    analysis.add_argument("--end", type=date.fromisoformat)
+    analysis.add_argument("--lookback", type=int, default=60)
+    analysis.add_argument("--target", type=float, default=0.95)
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
     try:
@@ -58,6 +64,12 @@ def main(argv: list[str] | None = None) -> int:
             from .coverage import coverage
 
             result = coverage(args.out)
+        elif args.command == "analyze":
+            from .rank_coverage import analyze_ranks
+
+            result = analyze_ranks(
+                args.out, start=args.start, end=args.end, lookback=args.lookback, target=args.target
+            )
         else:
             from .validation import check
 

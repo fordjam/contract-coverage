@@ -7,7 +7,7 @@ not modified.
 
 ## Built
 
-- Python 3.12 `futures-ts build`, `coverage`, `check`, with an installable wheel
+- Python 3.12 `futures-ts build`, `coverage`, `check`, `analyze`, with an installable wheel
   and source distribution; existing selector remains Python 3.11/std-library.
 - Local DBN decoding, source overlap selection, condition tracking and bounded
   early update reduction. As-of lifecycle identities prevent vendor-ID reuse
@@ -23,11 +23,16 @@ not modified.
 - Lazy partition-pruned analysis API and an explicit-basis bounded adapter to the
   existing selector. UTC bar volume is not silently substituted in that adapter.
 - Generated DBN fixtures, offline pytest checks and Linux/Windows CI definitions.
+- Relative expiry-label activity selection at 90/95/99%, contiguous-chain comparisons,
+  actual dated contract/leg mappings and all C1–C6 synthetic price-completeness pairs.
+  Offline HTML and CSV/JSON distinguish aggregate activity from daily shortfalls and
+  price-history completeness. Reversed exchange-listed calendars retain their sign;
+  ambiguous equal-side legs stay excluded.
 
 ## Validation
 
-On Python 3.12: **57 pipeline tests passed**, plus **24 original selector tests**
-(81 total). Original JSON/CSV/policy smoke checks reproduce the committed example.
+On Python 3.12: **70 pipeline tests passed**, plus **24 original selector tests**
+(94 total). Original JSON/CSV/policy smoke checks reproduce the committed example.
 Ruff F/E9/B checks and the 100-column gate pass on new Python files. Wheel and
 source distribution are built offline, and the installed CLI is exercised with
 generated fixtures. The installed-wheel smoke test reuses already installed
@@ -44,6 +49,11 @@ ratio adjustment and invalid bridges, holidays/missing observations, cross-year
 ADV, degraded/missing/partial days, winter/summer 17:00 boundaries, root filtering,
 worker determinism, source immutability, corruption, unsafe manifests, output
 refusal, lazy file pruning and adapter scope limits.
+Relative-contract tests also cover reversed/ambiguous sides, C3-C1 price direction,
+unranked activity in denominators, aggregate-vs-daily coverage, whole-catalog ranks,
+missing reference dates, synthetic completeness, contiguous-chain pair eligibility,
+report generation and safe HTML embedding. An isolated installed-Chrome check
+exercises category/target changes and desktop/mobile layouts without network requests.
 
 Synthetic memory workload on an M4 / 16 GiB Mac, Python 3.12.13, Databento 0.86.0,
 databento-dbn 0.69.0 and Polars 1.44.1:
@@ -68,7 +78,7 @@ python3.12 -m tests.benchmark_synthetic --work out/memory-catalog --mode catalog
 python3.12 -m tests.benchmark_synthetic --work out/memory-revisions --scale 5
 ```
 
-## Mac run after review
+## Mac commands
 
 Install the project into its own Python 3.12 environment. Per CONTRIBUTING.md,
 machine-specific filesystem paths are not committed. Set `FUTURES_BATCH_ROOT` to
@@ -80,11 +90,14 @@ directory. The operator can then run these exact commands from the checkout:
   --out "$FUTURES_OUTPUT_ROOT" --workers 2
 .venv/bin/futures-ts coverage --out "$FUTURES_OUTPUT_ROOT"
 .venv/bin/futures-ts check --out "$FUTURES_OUTPUT_ROOT"
+.venv/bin/futures-ts analyze --out "$FUTURES_OUTPUT_ROOT" --lookback 60 --target 0.95
 ```
 
 Start with `--roots CL,NG` and an optional `--end` when inspecting a subset. Date
 filters still scan historical warmup and later source publications needed for
-reference-date revisions. No real-data build was performed for this packet.
+reference-date revisions. A full 35-root offline real-data build is in progress,
+authorized by the owner after synthetic acceptance. Its data, analysis reports
+and machine-specific execution receipt remain outside Git.
 
 ## Limits requiring operator interpretation
 
@@ -102,4 +115,5 @@ reference-date revisions. No real-data build was performed for this packet.
 - The standalone selector retains its documented solver limits. Its JSON adapter
   has a bounded scope; columnar queries are the path for bulk archive analysis.
 
-Human review precedes a real-data run or publication of the branch.
+Branch publication still requires human review. The user separately authorized
+the offline real-data run and derived analysis after the initial implementation.

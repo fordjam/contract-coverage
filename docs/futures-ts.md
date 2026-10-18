@@ -11,6 +11,7 @@ futures-ts build --src "$FUTURES_BATCH_ROOT" --out "$FUTURES_OUTPUT_ROOT" \
   --roots CL,NG --start 2020-01-01 --end 2026-08-10 --workers 2
 futures-ts coverage --out "$FUTURES_OUTPUT_ROOT"
 futures-ts check --out "$FUTURES_OUTPUT_ROOT"
+futures-ts analyze --out "$FUTURES_OUTPUT_ROOT" --lookback 60 --target 0.95
 ```
 
 Set the two shell variables to the local batch directory and a new output
@@ -24,7 +25,7 @@ place. Existing nonempty output is refused. Choose a new directory for a rebuild
 `coverage` regenerates reports; `check` verifies hashes, schemas, partitions,
 uniqueness, lifecycle bounds, price ranges, totals, synthetic signs and OI evidence.
 Exit status is 0 on success, 2 for invalid input or artifacts. CLI stdout is JSON;
-errors go to stderr. Hashes cover Parquet artifacts; input file sizes are checked
+progress and errors go to stderr. Hashes cover Parquet artifacts; input file sizes are checked
 against manifests and vendor hashes are retained without recomputing them.
 
 ## Input discovery and memory
@@ -90,10 +91,13 @@ class, raw symbol and lifecycle, preventing cross-year ID pooling. Multiple leg
 records become one definition version. No future snapshot is borrowed backwards.
 
 Calendar spreads require two complete explicit legs, same root, distinct delivery
-months, one-for-one positive ratios, and buy-near/sell-far orientation. User-defined,
+months, one-for-one positive ratios, and opposite buy/sell sides. User-defined,
 incomplete, cross-root, unknown-ratio and other structures are excluded with counts.
 Symbols and missing legacy leg fields are not guessed. Inactive legs can become
 eligible later within their recorded lifecycle without changing structural identity.
+`listed_price_sign=1` means the exchange quote buys near/sells far; `-1` means it
+buys far/sells near. Listed prices retain their exchange orientation. Synthetic
+pipeline prices remain near-minus-far. Equal-side legs are not inferred as calendars.
 
 Statistics are reduced by reference session and stat type. Latest means exchange
 time, then receive time, sequence and channel. Delete clears that statistic without
@@ -143,6 +147,52 @@ adjustments. Zero/negative bridges invalidate ratio adjustment, while difference
 can remain valid. Latest settlement flags remain available on the continuous rows.
 
 ## Analysis API
+
+### Relative-contract report
+
+`futures-ts analyze` writes `analysis/report.html`, a self-contained offline view,
+plus `rank_coverage.csv`, `recommendations.csv`, `contracts.csv`,
+`series_availability.csv`, `source_quality.csv` and `analysis.json`.
+`front_chain.csv` compares contiguous front chains using the same denominators.
+Use `--start YYYY-MM-DD --end YYYY-MM-DD` for an explicit historical range;
+otherwise it chooses the last 60 observed positive-cleared-volume dates, ending
+before a source day marked partial. With no cleared volume it uses observed bar
+dates. The date span can contain additional UTC bar dates, including Sundays.
+This observed archive calendar is not a verified exchange calendar.
+
+C1, C2, etc. are dated expiry ranks from the whole eligible as-of catalog, including
+untraded contracts. They are independent of continuous-contract roll decisions.
+The report labels calendars **far minus near**, so C3-C1 is third expiry minus first.
+For an exchange-listed quote, that price is `-listed_price_sign * settlement`.
+Activity is unsigned and is not duplicated to represent the reverse direction.
+
+For each root and separate market category, the report sorts relative labels by
+aggregate known activity. It gives the minimum fixed label count needed to meet
+90%, 95%, 99% and the chosen target, assuming equal independent label costs. Required
+outright legs are reported separately; leg costs and joint budgets are not optimized.
+Selections are in-sample, not forecasts or point-in-time trading decisions.
+Worst-day, fifth-percentile and daily target-attainment rates expose concentration
+that an aggregate percentage hides. OI coverage sums instrument-days over the range.
+
+Choose cleared volume or UTC-bar volume explicitly. No denominator mixes them.
+Spread volume is direct listed-calendar activity only, never synthetic volume.
+Unranked activity stays in denominators and may make a target unattainable. Unknown
+IDs cannot be assigned to a root; their overall UTC-volume share remains visible.
+Excluded structures are counted separately, so listed-calendar coverage does not
+claim coverage of all spread structures or the entire exchange.
+
+A separate price-completeness table measures outright settlement/volume/OI availability
+and all synthetic pairs among C1 through C6, including C3-C1. Both leg settlements
+must be present for a synthetic price. Fractions use all reference dates in the
+analysis window; eligible-catalog date counts are retained separately. Missing
+definitions or quotes do not become zero prices. Completeness describes availability,
+not whether a settlement is final/actual; inspect retained flags for those requirements.
+
+The analysis command replaces its own text reports and does not modify market
+tables or source batches. Run `check` to verify build artifacts before analyzing an
+existing copied build.
+
+### Columnar access
 
 ```python
 from datetime import date

@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Futures contract coverage</title>
+<style>
+:root{color-scheme:light dark;--bg:light-dark(#f7f8fa,#14181e);--fg:light-dark(#18202b,#e6ebf2);
+--muted:light-dark(#536173,#a8b4c4);--line:light-dark(#d8dfe8,#394350);
+--panel:light-dark(#fff,#202630);--mark:light-dark(#1b6bb4,#70b7f6);--track:light-dark(#dce8f3,#344c61)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif}
+main{max-width:1250px;margin:auto;padding:32px 24px}h1{font-size:30px;margin:0 0 8px}h2{font-size:20px}
+p{max-width:100ch}.muted{color:var(--muted)}.controls{display:flex;gap:18px;flex-wrap:wrap;margin:24px 0}
+label{display:grid;gap:6px}select,button{font:inherit;color:var(--fg);background:var(--panel);
+border:1px solid var(--line);border-radius:5px;padding:8px 12px}select{min-width:130px}
+.summary{font-size:21px;font-weight:600}.numbers{font-variant-numeric:tabular-nums}
+.detail{padding:16px 0;border-block:1px solid var(--line);margin-bottom:22px}
+.overflow{overflow:auto}table{width:100%;border-collapse:collapse}th,td{padding:10px 12px;
+text-align:left;border-bottom:1px solid var(--line);vertical-align:top}th{font-weight:600}
+.right{text-align:right}.selected{background:color-mix(in srgb,var(--mark) 9%,transparent)}
+.bar{height:6px;background:var(--track);margin-top:5px}.bar span{display:block;height:100%;background:var(--mark)}
+.symbols{max-width:380px;overflow-wrap:anywhere}code{font-size:inherit}details{margin-top:24px}
+footer{margin-top:30px;color:var(--muted)}@media(max-width:600px){main{padding:20px 12px}th,td{padding:8px}}
+</style></head><body><main>
+<h1>Futures contract coverage</h1>
+<p id="period" class="muted"></p>
+<div class="controls">
+<label>Root<select id="root"></select></label>
+<label>Market<select id="category"><option value="outrights">Outrights</option>
+<option value="listed_spreads">Listed calendars</option></select></label>
+<label>Activity measure<select id="metric"><option value="cleared_volume">Cleared volume · session</option>
+<option value="volume">Traded volume · UTC day</option><option value="open_interest">Open interest · session</option></select></label>
+<label>Coverage target<select id="target"></select></label>
+</div>
+<section class="detail" aria-live="polite"><div id="summary" class="summary numbers"></div>
+<p id="chosen"></p><p id="daily" class="numbers"></p><p id="chain" class="numbers"></p>
+<p id="quality" class="muted"></p></section>
+<div class="overflow"><table><thead><tr><th>Series</th><th id="contract-date">Actual contracts</th>
+<th class="right">Activity share</th><th class="right">Cumulative</th><th class="right">Known dates</th><th>Selection</th>
+</tr></thead><tbody id="rows"></tbody></table></div>
+<button id="more" type="button" hidden>Show all series</button>
+<h2>Price-series completeness</h2>
+<p id="availability-basis" class="muted"></p>
+<div class="overflow"><table><thead><tr><th>Series</th><th class="right">Expected dates</th>
+<th class="right">Settlement</th><th class="right">Cleared volume</th><th class="right">Open interest</th>
+<th>Settlement threshold</th></tr></thead><tbody id="availability"></tbody></table></div>
+<details><summary>How to interpret these results</summary>
+<p>C1 is the earliest-expiring eligible outright in the latest definition snapshot available on each observation date.
+Ranks change as contracts expire. These are expiry ranks; continuous-series OI rolls use a separate schedule.</p>
+<p>C3−C1 means the third expiry minus the first. The table maps both legs to actual symbols on the displayed date.
+Exchange-listed prices can use the opposite direction; the data retains that sign. A reverse quotation does not double volume.</p>
+<p>Selections minimize the number of fixed relative labels for aggregate known activity in this historical window.
+They are in-sample results, with no transaction costs or leg acquisition costs. Required legs are shown separately.
+Daily coverage can fall below the aggregate target; no future coverage is guaranteed.</p>
+<p>Outright and listed-calendar denominators are separate. Synthetic spread prices have no independent volume or OI and are excluded.
+Only explicitly identified, two-leg, one-for-one, same-root calendars enter this spread universe.
+Other structures, ambiguous definitions, unmapped IDs and missing observations are not counted as zero.</p>
+<p>Cleared volume and OI use reference session dates. UTC-day traded volume is a separate measure; it is never mixed into a session denominator.
+Known activity coverage does not certify exchange-wide completeness. OI is summed instrument-days, not a single current OI snapshot.
+Unknown IDs cannot be attributed to individual roots; their archive-wide share is reported below.</p>
+</details><footer id="footer"></footer>
+</main><script type="application/json" id="analysis-data">__ANALYSIS_DATA__</script>
+<script>
+(()=>{'use strict';
+const d=JSON.parse(document.getElementById('analysis-data').textContent);
+const el=id=>document.getElementById(id),pct=x=>x==null?'unavailable':(100*x).toFixed(2)+'%';
+const roots=d.root_quality.map(q=>q.root),root=el('root'),category=el('category'),metric=el('metric'),target=el('target');
+roots.forEach(r=>root.add(new Option(r,r)));root.value=roots.includes('CL')?'CL':roots[0];
+[...new Set(d.recommendations.map(r=>r.target))].sort().forEach(t=>target.add(new Option(pct(t),t)));
+target.value=String(d.target);let expanded=false;
+el('period').textContent=d.start+' to '+d.end+' · local Databento GLBX.MDP3 · known activity coverage';
+el('footer').textContent='Unmapped volume across all supplied roots: '+pct(d.unknown_volume_fraction)+
+' of UTC-day volume in this window ('+d.unmapped_rows.toLocaleString()+' unmapped daily rows).';
+function cell(tr,value,cls=''){const td=document.createElement('td');td.textContent=value;td.className=cls;tr.append(td);return td;}
+function draw(){
+ const r=root.value,c=category.value,m=metric.value,t=Number(target.value);
+ const rec=d.recommendations.find(x=>x.root===r&&x.category===c&&x.metric===m&&x.target===t);
+ const rows=d.ranked.filter(x=>x.root===r&&x.category===c&&x.metric===m);
+ const q=d.root_quality.find(x=>x.root===r),maps=d.contracts.filter(x=>x.root===r&&x.category===c);
+ const labels=rec?rec.labels:[];
+ el('summary').textContent=rec?rec.label_count+' series capture '+pct(rec.aggregate_share)+' of known '+
+ (m==='volume'?'UTC-day volume':m.replace('_',' '))+(rec.target_met?'':' · target not reached'):
+ 'No known positive '+m.replace('_',' ')+' for this market and window';
+ el('chosen').textContent=rec?'Selected: '+labels.join(', ')+' · Required outright legs: '+rec.required_legs.join(', '):
+ 'Choose another activity measure. Missing statistics do not mean zero trading.';
+ el('daily').textContent=rec?'Target met on '+pct(rec.days_meeting_target_fraction)+' of '+rec.known_activity_days+
+ ' dates with known positive activity · 5th percentile '+pct(rec.daily_p05_share)+' · worst date '+pct(rec.daily_min_share):'';
+ const curve=d.front_chain.filter(x=>x.root===r&&x.category===c&&x.metric===m);
+ const first=curve.find(x=>x.share>=t),depths=c==='outrights'?[1,2,3,6]:[2,3,6];
+ el('chain').textContent=curve.length?(c==='outrights'?'Contiguous outrights: ':'All listed pairs within ')+
+ depths.map(k=>{const x=curve.find(x=>x.depth===k);return x?'C1–C'+k+' '+pct(x.share):null;})
+ .filter(Boolean).join(' · ')+(first?' · target first met at C1–C'+first.depth:' · target not reached'):'';
+ el('quality').textContent='Latest definition: '+(q.latest_definition||'none')+' · '+q.degraded_source_dates+
+ ' degraded source dates · '+q.missing_source_dates+' missing expected source dates · '+q.partial_source_dates+
+ ' partial source dates · excluded structures traded '+q.excluded_utc_volume.toLocaleString()+' UTC-day contracts. '+
+ (rec&&rec.unranked_activity?'Unranked activity remains in this denominator.':'');
+ el('contract-date').textContent='Contracts at '+q.contract_mapping_date;
+ const tbody=el('rows');tbody.replaceChildren();
+ (expanded?rows:rows.slice(0,25)).forEach(x=>{
+  const tr=document.createElement('tr');if(labels.includes(x.label))tr.className='selected';
+  cell(tr,x.label?x.label.replaceAll('-','−'):'Unranked');
+  const matches=maps.filter(z=>z.label===x.label),symbols=[...new Set(matches.map(z=>c==='outrights'?z.symbol:
+    z.far_symbol+' − '+z.near_symbol+' [listed '+z.symbol+']'))];
+  cell(tr,symbols.length?symbols.join('; '):'No eligible mapping on latest date','symbols');
+  const td=cell(tr,pct(x.share),'right numbers'),track=document.createElement('div'),fill=document.createElement('span');
+  track.className='bar';fill.style.width=(100*x.share)+'%';track.append(fill);td.append(track);
+  cell(tr,x.label?pct(x.cumulative_share):'—','right numbers');cell(tr,x.known_days,'right numbers');
+  cell(tr,labels.includes(x.label)?'Included':'');tbody.append(tr);
+ });
+ el('more').hidden=rows.length<=25;el('more').textContent=expanded?'Show top 25':'Show all '+rows.length+' series';
+ const availability=el('availability');availability.replaceChildren();
+ const availabilityCategory=c==='outrights'?'outrights':'synthetic_spreads';
+ el('availability-basis').textContent=c==='outrights'?
+ 'Settlement and statistics availability on observed archive sessions. First six expiry ranks shown.':
+ 'Far-minus-near synthetic settlements for all pairs among C1–C6. Both leg settlements must be known. No invented spread volume or OI.';
+ d.availability.filter(x=>x.root===r&&x.category===availabilityCategory&&
+  (c!=='outrights'||Number(x.label.slice(1))<=6)).forEach(x=>{
+   const tr=document.createElement('tr');cell(tr,x.label.replaceAll('-','−'));
+   cell(tr,x.expected_dates,'right numbers');cell(tr,pct(x.settlement_fraction),'right numbers');
+   cell(tr,pct(x.cleared_volume_fraction),'right numbers');
+   cell(tr,pct(x.open_interest_fraction),'right numbers');
+   cell(tr,x.settlement_fraction>=t?'Meets '+pct(t):'Below '+pct(t));availability.append(tr);
+ });
+}
+[root,metric,target].forEach(x=>x.addEventListener('change',()=>{expanded=false;draw();}));
+category.addEventListener('change',()=>{metric.value=category.value==='listed_spreads'?'volume':'cleared_volume';expanded=false;draw();});
+el('more').addEventListener('click',()=>{expanded=!expanded;draw();});draw();
+})();
+</script></body></html>
