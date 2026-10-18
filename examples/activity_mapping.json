@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "columns": {
+    "date": "DAY",
+    "venue": "EXCHANGE",
+    "family": "FAMILY",
+    "category": "TYPE",
+    "product_id": "ECONOMIC_ID",
+    "volume": "ACTIVITY",
+    "metric": "MEASURE",
+    "date_basis": "DAY_BASIS",
+    "delivery_month": "DELIVERY",
+    "near_month": "NEAR",
+    "far_month": "FAR",
+    "pattern": "RELATIVE"
+  },
+  "constants": {
+    "source": "synthetic-export",
+    "unit": "contracts"
+  }
+}

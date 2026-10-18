@@ -31,8 +31,9 @@ not modified.
 
 ## Validation
 
-On Python 3.12: **84 pipeline tests passed**, plus **24 original selector tests**
-(108 total). Original JSON/CSV/policy smoke checks reproduce the committed example.
+On Python 3.12: **137 pytest cases passed** (84 pipeline and 53 generic coverage),
+plus **24 original selector tests** (161 total). Original JSON/CSV/policy smoke
+checks reproduce the committed example.
 Ruff F/E9/B checks and the 100-column gate pass on new Python files. Wheel and
 source distribution are built offline, and the installed CLI is exercised with
 generated fixtures. The installed-wheel smoke test reuses already installed
@@ -128,6 +129,61 @@ volume capture and per-date attainment remain separate measures; these results d
 not certify exchange-wide market completeness or a root-specific trading calendar.
 
 ## Mac commands
+
+### Generalized multi-vendor coverage
+
+The `product-coverage` CLI and importable `product_coverage` package remove the
+fixed universe from the minimum-support calculation. CSV/Parquet column mappings
+accept approved vendor exports; a Bloomberg live connection is not included.
+The generic core imports no vendor SDK. Its default monthly delivery patterns
+retain seasonal holes instead of requiring a contiguous first-N curve.
+
+See [the full data contract, proofs, adapter procedure and examples](../product-coverage.md).
+Methods explicitly distinguish monthly calendar capacity, fixed actual dated
+products, supplied relative-label subsets and a daily hindsight lower bound.
+Frozen-policy evaluation refuses overlap, accounting changes, absent policy
+groups and unfitted new families. Missing activity and unselectable identities
+remain visible; an unknown full-universe denominator is never certified by default.
+
+The five-year real-data bridge/regression covers 2021-08-11–2026-08-10. All 70
+root/category groups match the earlier independent scripts' counts and known
+denominators under all three comparable methods (210 comparisons). Every
+selected K passes the exact 99% threshold and K−1 fails:
+
+| Method | Sum of per-root outright counts | Sum of per-root listed spread counts |
+| --- | ---: | ---: |
+| Monthly calendar capacity | 173 | 487 |
+| Daily hindsight capacity | 171 | 410 |
+| Fixed distinct dated products over five years | 1,066 | 3,702 |
+
+These are independent unit-cost per-root/category objectives over aggregate
+known volume, not a joint optimization of shared legs or a daily coverage guarantee.
+Outrights use cleared reference-session volume; listed spreads use UTC-day bar
+volume. Unknown-family observations remain in the upstream coverage audit.
+
+The generic scale workload covers 200 synthetic families / 400 groups,
+1,260 dates and 5,040,000 daily facts. A fresh analysis process completed in
+7.71 seconds with 115,376,128 bytes peak RSS. Highly repetitive Parquet inputs
+totaled 5,075,200 bytes. This is a synthetic scale check, not a vendor archive
+compression or memory guarantee. The full generator/reproducer is
+`tests/benchmark_product_coverage.py`; facts, measured receipt and real analysis
+artifacts remain outside Git. Source and wheel packaging and the documented
+synthetic train/holdout CLI example are checked offline.
+
+With `FUTURES_OUTPUT_ROOT` pointing at the verified real build, run:
+
+```sh
+.venv/bin/product-coverage from-futures-ts --src "$FUTURES_OUTPUT_ROOT" \
+  --start 2021-08-11 --end 2026-08-10 --out out/canonical-five-year
+.venv/bin/product-coverage analyze --input out/canonical-five-year/*.parquet \
+  --method monthly-calendar --target 0.99 --out out/generalized-99
+```
+
+Use `--method daily-oracle` or `fixed-products` in a new output directory for
+the other two rows. For a larger vendor dataset, substitute normalized export
+files and an explicit column mapping as documented in the operator guide.
+
+### Existing futures-ts pipeline
 
 Install the project into its own Python 3.12 environment. Per CONTRIBUTING.md,
 machine-specific filesystem paths are not committed. Set `FUTURES_BATCH_ROOT` to

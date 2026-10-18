@@ -88,6 +88,26 @@ and [expected CSV](examples/expected_recommendations.csv).
 The importable `analyze(payload: dict) -> dict` function performs no file I/O or
 network access. The selection implementation and its self-tests remain in **one Python file**.
 
+## Multiple vendors and larger universes: product-coverage
+
+The Python 3.12 `product-coverage` module calculates exact per-family minimum
+support from local CSV/Parquet activity exports, with no fixed family list.
+Its default monthly calendar rules preserve seasonal gaps and target 99% of
+known trading volume. It also supports fixed dated products, supplied C-label
+patterns and a daily hindsight lower bound, with frozen-policy holdout tests.
+
+```sh
+python3.12 -m pip install .
+product-coverage analyze --input examples/activity_export.csv \
+  --mapping examples/activity_mapping.json --start 2024-01-01 --end 2024-12-31 \
+  --target 0.99 --out out/product-coverage
+```
+
+See [data contract, exact methods and vendor integration](docs/product-coverage.md).
+The configurable file adapter can accept approved Bloomberg exports; no live
+Bloomberg connector or Bloomberg field semantics are assumed. It includes a
+bridge from existing `futures-ts` Parquet outputs.
+
 ## Optional Databento data preparation: futures-ts
 
 The separate `src/futures_ts/` package builds daily futures tables from local

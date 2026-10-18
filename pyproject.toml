@@ -21,6 +21,7 @@ test = ["pytest>=8,<10", "zstandard>=0.23,<1"]
 
 [project.scripts]
 futures-ts = "futures_ts.cli:main"
+product-coverage = "product_coverage.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
