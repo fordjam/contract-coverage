@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import date
 
 import polars as pl
 import pytest
@@ -101,3 +102,29 @@ def test_output_checksum_detects_corruption(tmp_path):
         handle.write(b"corrupt")
     with pytest.raises(BuildError, match="checksum"):
         check(out)
+
+
+def test_explicit_history_boundary_keeps_asof_baseline_and_declares_roll_scope(tmp_path):
+    src, out = tmp_path / "src", tmp_path / "out"
+    batch(src, "defs", "definition", {"2025-01-01": [definition(1, "A")]})
+    batch(
+        src,
+        "stats",
+        "statistics",
+        {
+            "2025-01-02": [statistic(1, 6, 100)],
+            "2025-01-03": [
+                statistic(1, 6, 200, day="2025-01-03"),
+                statistic(1, 6, 120, day="2025-01-03", ref="2025-01-02"),
+            ],
+        },
+    )
+    metadata = build(src, out, roots=("CL",), history_start=date(2025, 1, 3))
+    rows = scan(out, "daily_outright").collect()
+    assert rows["raw_symbol"].to_list() == ["A"]
+    assert rows["adv20"].to_list() == [200]
+    assert rows["adv20_samples"].to_list() == [1]
+    assert metadata["history_start"] == "2025-01-03"
+    assert metadata["warmup_scope"] == "bounded input history"
+    assert metadata["input_counts"]["statistics_decoded"] == 2
+    assert {s["schema"] for s in metadata["sources"]} == {"definition", "statistics"}

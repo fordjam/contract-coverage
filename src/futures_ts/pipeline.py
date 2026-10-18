@@ -9,6 +9,7 @@ import shutil
 import tempfile
 from collections import OrderedDict, defaultdict
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 
@@ -50,7 +51,9 @@ def calendar_file(path: Path | None, roots: tuple[str, ...]) -> dict[str, list[d
     return {root: sorted(days) for root, days in result.items()}
 
 
-def ingest(sources: Sources, raw: Path, end: date | None) -> dict:
+def ingest(
+    sources: Sources, raw: Path, end: date | None, history_start: date | None = None
+) -> dict:
     LOG.info("Ingesting %s source files", len(sources.files))
     writer, definitions = Writer(raw), Definitions(sources)
     catalog_cache = OrderedDict()
@@ -93,7 +96,10 @@ def ingest(sources: Sources, raw: Path, end: date | None) -> dict:
                 target = int(((types == 3) | (types == 6) | (types == 9)).sum())
                 counts["statistics_target_messages"] += target
                 counts["statistics_other_types"] += len(chunk) - target
-            records = statistic_candidates(chunk) if source.schema == "statistics" else chunk
+            try:
+                records = statistic_candidates(chunk) if source.schema == "statistics" else chunk
+            except BuildError as exc:
+                raise BuildError(f"{source.path}: {exc}") from exc
             rows = []
             for record in records:
                 event = int(record["ts_event"])
@@ -105,6 +111,8 @@ def ingest(sources: Sources, raw: Path, end: date | None) -> dict:
                     if day != source.day:
                         raise BuildError(f"{source.path}: UTC bar date differs from source day")
                 if end and day > end:
+                    continue
+                if history_start and day < history_start:
                     continue
                 identity = definitions.identity(
                     catalog(day), day, int(record["publisher_id"]), int(record["instrument_id"])
@@ -290,7 +298,11 @@ def process_root(
     )
     carry, totals_carry, seen = None, None, {}
     continuous = Continuous(root, roll_days)
+    logged_year = None
     for first, following in _periods(raw, root, calendar):
+        if first.year != logged_year:
+            LOG.info("Root %s: %s", root, first.year)
+            logged_year = first.year
         selected = pl.col("date").is_between(first, following, closed="left")
         stats = reduce_statistics(scan(raw, "statistics_events", root, first.year).filter(selected))
         bars = scan(raw, "bars_utc", root, first.year).filter(selected).collect()
@@ -492,11 +504,15 @@ def build(
     workers: int = 2,
     roll_days: int = 5,
     calendar: Path | None = None,
+    history_start: date | None = None,
 ) -> dict:
     if workers not in (1, 2) or roll_days < 0:
         raise BuildError("workers must be 1 or 2; roll-days must be nonnegative")
     if start and end and start > end:
         raise BuildError("--start must not follow --end")
+    if history_start and ((start and history_start > start) or (end and history_start > end)):
+        raise BuildError("--history-start must not follow output start or end")
+    start = start or history_start
     if out.is_symlink():
         raise BuildError("Output must not be a symlink")
     src, out = src.resolve(), out.resolve()
@@ -507,12 +523,25 @@ def build(
             "Output must be nonexistent or empty; existing builds are never overwritten"
         )
     sources = discover(src, roots)
+    if history_start:
+        baseline = set()
+        scope = {root for source in sources.files for root in source.roots}
+        for root in scope:
+            previous = [
+                s
+                for s in sources.files
+                if s.schema == "definition" and s.day < history_start and root in s.roots
+            ]
+            latest = max((s.day for s in previous), default=None)
+            baseline.update(s for s in previous if s.day == latest)
+        selected = [s for s in sources.files if s.day >= history_start or s in baseline]
+        sources = replace(sources, files=selected)
     calendars = calendar_file(calendar, sources.requested_roots)
     out.parent.mkdir(parents=True, exist_ok=True)
     stage = Path(tempfile.mkdtemp(prefix=".futures-ts-", dir=out.parent))
     raw = stage / "_staging"
     try:
-        counts = ingest(sources, raw, end)
+        counts = ingest(sources, raw, end, history_start)
         quality = Writer(stage)
         quality.rows(
             "source_quality", [r for r in sources.quality if within(r["date"], start, end)]
@@ -520,7 +549,10 @@ def build(
         quality.finish()
 
         def run(root):
-            process_root(raw, stage, root, sources, calendars.get(root), start, end, roll_days)
+            try:
+                process_root(raw, stage, root, sources, calendars.get(root), start, end, roll_days)
+            except BuildError as exc:
+                raise BuildError(f"Root {root}: {exc}") from exc
 
         with ThreadPoolExecutor(max_workers=workers) as executor:
             list(executor.map(run, [*sources.requested_roots, "__unmapped__"]))
@@ -533,6 +565,8 @@ def build(
             "roots": list(sources.requested_roots),
             "start": str(start) if start else None,
             "end": str(end) if end else None,
+            "history_start": str(history_start) if history_start else None,
+            "warmup_scope": "bounded input history" if history_start else "full available history",
             "roll_days": roll_days,
             "calendar_basis": "supplied" if calendar else "observed_unverified",
             "completeness_scope": "eligible supplied as-of catalog, not exchange-wide",

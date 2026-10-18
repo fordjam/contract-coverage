@@ -21,6 +21,8 @@ from tests.generate_fixtures import batch, definition, example, statistic, bar
         {"workers": 3},
         {"roll_days": -1},
         {"start": date(2025, 2, 1), "end": date(2025, 1, 1)},
+        {"history_start": date(2025, 2, 1), "start": date(2025, 1, 1)},
+        {"history_start": date(2025, 2, 1), "end": date(2025, 1, 1)},
     ],
 )
 def test_invalid_build_options_fail_before_reading_sources(tmp_path, options):

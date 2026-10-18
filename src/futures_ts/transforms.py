@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
+import logging
 
 import polars as pl
 import numpy as np
@@ -11,6 +12,7 @@ from .model import DAILY, IDENTITY, PRICE_SCALE, STAT, UNDEF_INT, UNDEF_TS, Buil
 
 KEY = ["date", "publisher_id", "instrument_id"]
 STAT_NAMES = {3: "settlement", 6: "cleared_volume", 9: "open_interest"}
+LOG = logging.getLogger(__name__)
 
 
 def latest_events(events: pl.LazyFrame) -> pl.LazyFrame:
@@ -28,11 +30,40 @@ def latest_events(events: pl.LazyFrame) -> pl.LazyFrame:
             .alias("n")
         )
         .filter(pl.col("n") > 1)
-        .limit(1)
         .collect()
     )
     if conflicts.height:
-        raise BuildError("Conflicting statistic values share the same event ordering key")
+        tied = contenders.join(conflicts.select(groups).lazy(), on=groups, how="inner").collect()
+        replacements = []
+        for group in tied.partition_by(groups):
+            flags = group["stat_flags"].to_list()
+            precise = group.filter((pl.col("stat_flags") & 4) == 0)
+            tick = group.filter((pl.col("stat_flags") & 4) != 0)
+            value_fields = ["price_nanos", "quantity", "update_action", "stat_flags"]
+            same_event_representation = (
+                group["stat_type"][0] == 3
+                and all(f is not None and f & 240 == 0 for f in flags)
+                and len({f & 251 for f in flags}) == 1
+                and group["update_action"].n_unique() == 1
+                and group["quantity"].n_unique() == 1
+                and precise.height > 0
+                and tick.height > 0
+                and precise.select(value_fields).unique().height == 1
+                and tick.select(value_fields).unique().height == 1
+            )
+            if not same_event_representation:
+                raise BuildError("Conflicting statistic values share the same event ordering key")
+            replacements.append(precise.head(1))
+        LOG.info(
+            "Retained precise settlement for %s simultaneous tick representations",
+            len(replacements),
+        )
+        latest = pl.concat(
+            [
+                latest.join(conflicts.select(groups).lazy(), on=groups, how="anti"),
+                pl.concat(replacements).select(events.collect_schema().names()).lazy(),
+            ]
+        )
     if latest.filter(~pl.col("update_action").is_in([1, 2])).limit(1).collect().height:
         raise BuildError("Unknown statistics update_action")
     if (

@@ -31,8 +31,8 @@ not modified.
 
 ## Validation
 
-On Python 3.12: **70 pipeline tests passed**, plus **24 original selector tests**
-(94 total). Original JSON/CSV/policy smoke checks reproduce the committed example.
+On Python 3.12: **79 pipeline tests passed**, plus **24 original selector tests**
+(103 total). Original JSON/CSV/policy smoke checks reproduce the committed example.
 Ruff F/E9/B checks and the 100-column gate pass on new Python files. Wheel and
 source distribution are built offline, and the installed CLI is exercised with
 generated fixtures. The installed-wheel smoke test reuses already installed
@@ -60,7 +60,7 @@ databento-dbn 0.69.0 and Polars 1.44.1:
 
 | Workload | Messages decoded | Workers | Build time | Peak process RSS |
 |---|---:|---:|---:|---:|
-| Two roots, 252 sessions, 64 outrights/root plus all listed pairs | 1,112,832 | 2 | 12.282 s | 952.88 MiB |
+| Two roots, 252 sessions, 64 outrights/root plus all listed pairs | 1,112,832 | 2 | 13.088 s | 979.48 MiB |
 
 It produced 1,048,320 daily statistic rows, 32,256 outright rows and 1,018,584
 listed/synthetic spread rows; invariant checks passed. The workload measures many
@@ -98,6 +98,14 @@ filters still scan historical warmup and later source publications needed for
 reference-date revisions. A full 35-root offline real-data build is in progress,
 authorized by the owner after synthetic acceptance. Its data, analysis reports
 and machine-specific execution receipt remain outside Git.
+
+The first historical execution stopped before publication on simultaneous
+trading-tick/non-tick settlement representations. The reducer now retains the
+precise non-tick representation only under the strict flag/action agreement rule
+documented in the operator guide; unrelated conflicts still fail. Generated
+regressions cover input-order independence and rejected flag mismatches.
+`--history-start` provides an explicitly bounded recent build while preserving
+the preceding as-of definition snapshot and declaring the roll initialization scope.
 
 ## Limits requiring operator interpretation
 

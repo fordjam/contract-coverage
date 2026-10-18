@@ -251,7 +251,8 @@ def analyze_ranks(
         raise BuildError("lookback must be positive and target must be in (0, 1]")
     metadata = manifest(base)
     quality = scan(base, "source_quality").collect()
-    partial = quality.filter(pl.col("partial_day"))["date"].unique().to_list()
+    activity_quality = quality.filter(pl.col("schema").is_in(["ohlcv-1d", "statistics"]))
+    partial = activity_quality.filter(pl.col("partial_day"))["date"].unique().to_list()
     dates = (
         scan(base, "daily_outright")
         .filter(pl.col("cleared_volume") > 0)
@@ -390,6 +391,8 @@ def analyze_ranks(
         "total_utc_bar_volume": total_bar_volume,
         "unknown_volume_fraction": unknown_volume / total_bar_volume if total_bar_volume else None,
         "unmapped_rows": unknown.height,
+        "archive_last_source_date": str(activity_quality["date"].max()),
+        "archive_partial_source_dates": sorted(str(d) for d in partial),
         "root_quality": root_quality,
         "ranked": ranked,
         "recommendations": recommendations,

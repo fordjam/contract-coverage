@@ -20,6 +20,12 @@ inclusive output dates. Historical input still establishes rolling windows and
 path-dependent rolls; later files can correct statistics referring to earlier
 sessions. `--end` is not a historical publication-time cutoff.
 
+For explicitly bounded recent analysis, `--history-start YYYY-MM-DD` skips older
+observation files while retaining each parent's latest preceding definition snapshot.
+The output manifest records this boundary. ADV and continuous roll state initialize
+there, so this is not equivalent to a full-history continuous build. Supply enough
+warmup for the analysis window; ordinary `--start` still retains full input history.
+
 Builds use a sibling staging directory, validate artifacts, then rename into
 place. Existing nonempty output is refused. Choose a new directory for a rebuild.
 `coverage` regenerates reports; `check` verifies hashes, schemas, partitions,
@@ -105,6 +111,11 @@ clearing others. CME settlement bits record final/preliminary, actual/theoretica
 trading tick and intraday status. Null bit 7 clears the price; unsupported reserved
 bits clear it and remain visible in coverage. A latest preliminary/theoretical or
 intraday value is retained with its flags, not silently called a final settlement.
+An identical exchange event can contain a trading-tick settlement and a more precise
+non-tick settlement. When only bit 2 differs, actions/other flags agree, and each
+representation is internally unambiguous, retain the non-tick value. All other
+conflicting winning values still fail closed. This rule applies only to simultaneous
+representations, never to prefer an older value over a later update.
 
 `ts_ref` is a UTC date label; do not localize it. Without it, use the 17:00
 America/Chicago date boundary, with DST. Preserve which rule supplied each metric's

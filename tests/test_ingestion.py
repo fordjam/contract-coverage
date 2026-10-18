@@ -146,3 +146,20 @@ def test_settlement_flags(flags, value, final, actual):
 def test_conflicting_statistics_abstain():
     with pytest.raises(BuildError, match="Conflicting statistic"):
         reduce_statistics(frame([event(70), event(71)], EVENT).lazy())
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_simultaneous_tick_and_precise_settlement(reverse):
+    rows = [event(91.23, flags=6), event(91.23456, flags=2)]
+    if reverse:
+        rows.reverse()
+    row = reduce_statistics(frame(rows, EVENT).lazy()).row(0, named=True)
+    assert row["settlement"] == 91.23456
+    assert row["settlement_flags"] == 2
+
+
+@pytest.mark.parametrize("flags", [3, 0, 128])
+def test_tick_precision_does_not_resolve_other_flag_conflicts(flags):
+    rows = [event(70, flags=6), event(71, flags=flags)]
+    with pytest.raises(BuildError, match="Conflicting statistic"):
+        reduce_statistics(frame(rows, EVENT).lazy())

@@ -27,6 +27,11 @@ def main(argv: list[str] | None = None) -> int:
     build_parser.add_argument("--roots", help="Comma-separated CME roots; default all 35")
     build_parser.add_argument("--start", type=date.fromisoformat)
     build_parser.add_argument("--end", type=date.fromisoformat)
+    build_parser.add_argument(
+        "--history-start",
+        type=date.fromisoformat,
+        help="Explicitly bound input history and roll initialization; default full history",
+    )
     build_parser.add_argument("--workers", type=int, choices=(1, 2), default=2)
     build_parser.add_argument(
         "--roll-days", type=int, default=5, help="Calendar days before expiry (default 5)"
@@ -58,6 +63,7 @@ def main(argv: list[str] | None = None) -> int:
                 workers=args.workers,
                 roll_days=args.roll_days,
                 calendar=args.calendar,
+                history_start=args.history_start,
             )
             result = {"status": "ok", "out": str(args.out), "input_counts": result["input_counts"]}
         elif args.command == "coverage":

@@ -15,7 +15,7 @@ from futures_ts.rank_coverage import (
     summarize_activity,
 )
 from futures_ts.rank_report import render_report
-from tests.generate_fixtures import example
+from tests.generate_fixtures import bar, batch, definition, example, statistic
 
 
 def test_aggregate_selection_and_daily_shortfalls():
@@ -190,3 +190,22 @@ def test_front_chain_includes_only_pairs_with_both_legs_inside_chain():
     rows, _ = summarize_activity(data, "CL", "listed_spreads", "volume", (0.95,))
     curve = front_chain_curve(rows)
     assert [r["share"] for r in curve] == pytest.approx([0, 0.6, 0.9, 1])
+
+
+def test_analysis_default_ends_before_partial_activity_source(tmp_path, capsys):
+    src, out = tmp_path / "src", tmp_path / "out"
+    batch(src, "defs", "definition", {"2025-01-01": [definition(1, "A")]})
+    days = ["2025-01-02", "2025-01-03"]
+    batch(
+        src,
+        "stats",
+        "statistics",
+        {d: [statistic(1, 6, 100, day=d)] for d in days},
+        end="2025-01-03T12:00:00Z",
+    )
+    batch(src, "bars", "ohlcv-1d", {d: [bar(1, day=d)] for d in days}, end="2025-01-03T12:00:00Z")
+    build(src, out, roots=("CL",))
+    assert main(["analyze", "--out", str(out)]) == 0
+    assert json.loads(capsys.readouterr().out)["end"] == "2025-01-02"
+    data = json.loads((out / "analysis/analysis.json").read_text())
+    assert data["archive_partial_source_dates"] == ["2025-01-03"]

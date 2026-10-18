@@ -68,7 +68,9 @@ roots.forEach(r=>root.add(new Option(r,r)));root.value=roots.includes('CL')?'CL'
 target.value=String(d.target);let expanded=false;
 el('period').textContent=d.start+' to '+d.end+' · local Databento GLBX.MDP3 · known activity coverage';
 el('footer').textContent='Unmapped volume across all supplied roots: '+pct(d.unknown_volume_fraction)+
-' of UTC-day volume in this window ('+d.unmapped_rows.toLocaleString()+' unmapped daily rows).';
+' of UTC-day volume in this window ('+d.unmapped_rows.toLocaleString()+' unmapped daily rows). '+
+'Archive source end: '+d.archive_last_source_date+'. Partial source dates: '+
+(d.archive_partial_source_dates.join(', ')||'none')+'.';
 function cell(tr,value,cls=''){const td=document.createElement('td');td.textContent=value;td.className=cls;tr.append(td);return td;}
 function draw(){
  const r=root.value,c=category.value,m=metric.value,t=Number(target.value);
