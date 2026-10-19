@@ -1,7 +1,8 @@
 # Packet F1: offline futures time series
 
-Implementation branch: `packet/packet-f1`. The original single-file selector is
-unchanged. No real market data, credentials or generated binary artifacts are
+Implementation branch: `packet/packet-f1`. The original selector's decisions are
+unchanged; its CSV presentation exports are hardened. No raw market data,
+credentials or generated binary artifacts are
 included in this change. Quant Factory and the household-finance repository are
 not modified.
 
@@ -31,8 +32,10 @@ not modified.
 
 ## Validation
 
-On Python 3.12: **137 pytest cases passed** (84 pipeline and 53 generic coverage),
-plus **24 original selector tests** (161 total). Original JSON/CSV/policy smoke
+The hardened candidate has **193 pytest cases** (84 pipeline, 53 generic coverage
+and 56 release regressions), plus **24 original selector tests** (217 total).
+See [the hardening report](public-hardening.md) for interpreter/artifact/security
+results and remaining publication gates. Original JSON/CSV/policy smoke
 checks reproduce the committed example.
 Ruff F/E9/B checks and the 100-column gate pass on new Python files. Wheel and
 source distribution are built offline, and the installed CLI is exercised with

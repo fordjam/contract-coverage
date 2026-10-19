@@ -16,7 +16,7 @@ import polars as pl
 from polars.exceptions import PolarsError
 
 from .engine import analyze, evaluate
-from .files import fingerprint, read_policy, scan_files, write_report
+from .files import fingerprint, load_json, read_policy, resolve_inputs, scan_files, write_report
 from .schema import METHODS
 
 
@@ -28,6 +28,11 @@ def main(argv: list[str] | None = None) -> int:
         sub.add_argument("--input", nargs="+", type=Path, required=True)
         sub.add_argument("--mapping", type=Path, help="Version 1 column/constants mapping JSON")
         sub.add_argument("--out", type=Path, required=True)
+        sub.add_argument(
+            "--include-local-paths",
+            action="store_true",
+            help="Opt into absolute paths in provenance; reports still contain licensed activity",
+        )
         if name != "normalize":
             sub.add_argument("--start", type=date.fromisoformat, required=name == "evaluate")
             sub.add_argument("--end", type=date.fromisoformat)
@@ -42,6 +47,7 @@ def main(argv: list[str] | None = None) -> int:
     bridge.add_argument("--out", type=Path, required=True)
     bridge.add_argument("--start", type=date.fromisoformat, required=True)
     bridge.add_argument("--end", type=date.fromisoformat, required=True)
+    bridge.add_argument("--include-local-paths", action="store_true")
     args = parser.parse_args(argv)
     try:
         if args.out.exists():
@@ -67,8 +73,12 @@ def main(argv: list[str] | None = None) -> int:
                 "adapter": "futures-ts",
                 "start": str(args.start),
                 "end": str(args.end),
-                "source_manifest": fingerprint([args.src / "manifest.json"]),
-                "outputs": fingerprint(sorted(args.out.glob("*.parquet"))),
+                "source_manifest": fingerprint(
+                    [args.src / "manifest.json"], include_paths=args.include_local_paths
+                ),
+                "outputs": fingerprint(
+                    sorted(args.out.glob("*.parquet")), include_paths=args.include_local_paths
+                ),
                 "accounting": (
                     "Outright cleared reference-session volume; listed spread UTC-day bar volume. "
                     "Synthetic spreads excluded; unknown-family rows remain in source "
@@ -78,8 +88,9 @@ def main(argv: list[str] | None = None) -> int:
             (args.out / "adapter.json").write_text(json.dumps(receipt, indent=2) + "\n")
             print(json.dumps({"partitions": count, "out": str(args.out)}))
             return 0
-        mapping = json.loads(args.mapping.read_text()) if args.mapping else None
-        query = scan_files(args.input, mapping)
+        mapping = load_json(args.mapping) if args.mapping else None
+        paths = resolve_inputs(args.input)
+        query = scan_files(paths, mapping)
         if args.command == "normalize":
             query.with_columns(pl.col("volume").cast(pl.Int64)).sink_parquet(
                 args.out, compression="zstd", row_group_size=65_536
@@ -88,7 +99,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         provenance = {
             "command": args.command,
-            "inputs": fingerprint(args.input),
+            "inputs": fingerprint(paths, include_paths=args.include_local_paths),
             "mapping": mapping,
             "start": str(args.start) if args.start else None,
             "end": str(args.end) if args.end else None,
@@ -97,7 +108,8 @@ def main(argv: list[str] | None = None) -> int:
         common = {"start": args.start, "end": args.end, "universe_complete": args.universe_complete}
         if args.command == "evaluate":
             provenance["policy_files"] = fingerprint(
-                [args.policy / "report.json", *sorted(args.policy.glob("group-*/rules.csv"))]
+                [args.policy / "report.json", *sorted(args.policy.glob("group-*/rules.json"))],
+                include_paths=args.include_local_paths,
             )
             results = evaluate(query, read_policy(args.policy), **common)
         else:

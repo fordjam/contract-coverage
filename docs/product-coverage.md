@@ -16,9 +16,10 @@ curve: a far December contract can be selected without intervening months.
 ## Run a complete synthetic example
 
 Install the repository with Python 3.12 (`python3.12 -m pip install .`), or
-install an approved wheel from a local wheelhouse when offline. Existing
-`futures-ts` installation/dependencies remain compatible. The generic core
-imports Polars, not a vendor SDK.
+install an approved wheel from a local wheelhouse when offline. Databento
+ingestion now requires the explicit `databento` extra; tests/fixture generation
+also use `test`. The generic installation uses Polars and portable timezone data,
+without a vendor SDK.
 
 ```sh
 product-coverage analyze --input examples/activity_export.csv \
@@ -41,6 +42,8 @@ the new December activity. This deliberately illustrates why an in-sample
 `python -m product_coverage.cli` provides the same commands. Every output path
 must be new. `report.json` is the completion marker; a failed run can leave
 partial diagnostic files without a completed report.
+`--input` accepts explicit files, literal glob patterns and dataset directories;
+matching paths are resolved/deduplicated inside the tool, including on Windows.
 
 ## Canonical daily activity contract, version 1
 
@@ -204,13 +207,29 @@ that adapter. Adding a vendor/universe does not require editing the generic core
 
 ## Outputs, reproducibility and API
 
-`report.json` records version, exact target, grouping/accounting, source file
+`report.json` format v2 records version, exact target, grouping/accounting, source file
 SHA256s, mapping, window, completeness assertion and runtime versions.
 `summary.md`/`.csv` give counts and coverage; every numbered group directory
-contains `rules.csv`, the full `curve.csv`, and `daily.csv`. Rules retain state,
-candidate, training weight and priority. Evaluate runs additionally record
-training dates and hashes of the frozen report/rules. Counts are never inferred
-from a first-to-last C range.
+contains `rules.json`, presentation `rules.csv`, the full `curve.csv`, and
+`daily.csv`. Exact rules retain state, candidate, training weight and priority
+in JSON, bound to the training summary and SHA256 in the report. Imports verify
+the hash and independently enforce schemas, per-state capacity, priorities,
+calendar syntax and the training minimality certificate. Evaluation also asserts
+daily selection cannot exceed declared capacity. Evaluate runs record hashes of
+the frozen report and JSON rules. Hashes detect changes, not sender authenticity.
+
+CSV strings that resemble formulas or contain controls are escaped as spreadsheet
+text, including leading whitespace and apostrophes. Numeric fields remain numeric.
+CSV is not a policy input: JSON/Parquet retain the exact underlying identifiers.
+Legacy v1 reports used unchecksummed CSV policies and are rejected; regenerate
+them using their original canonical inputs, method, target and training window.
+Do not convert escaped display CSV back into a policy.
+
+Default CLI provenance uses numbered input references, formats, sizes and SHA256,
+omitting input names and absolute paths. `--include-local-paths` restores paths
+when needed locally. Neither option anonymizes identifiers/activity or makes
+licensed reports suitable for a public issue. API callers control their own
+provenance dictionaries. Counts are never inferred from a first-to-last C range.
 
 ```python
 from datetime import date
@@ -248,8 +267,8 @@ Only observed listed pairs enter spread optimization.
 The file reader batches files with identical physical schemas into one scan,
 rather than constructing a separate scan plan per file for every family. This
 also handles null-only optional columns in separate outright/spread partitions.
-On the validation Mac, the 200-family benchmark analyzed 400 groups and
-5,040,000 daily rows in 7.71 seconds at 115,376,128 bytes peak process RSS.
+On the validation Mac, the hardened 200-family benchmark analyzed 400 groups and
+5,040,000 daily rows in 8.57 seconds at 117,325,824 bytes peak process RSS.
 Its highly repetitive synthetic facts compressed to 5,075,200 Parquet bytes;
 these figures are not a size/speed guarantee for a vendor archive. Reproduce:
 
@@ -258,9 +277,19 @@ python3.12 -m tests.benchmark_product_coverage \
   --work out/generic-scale --families 200 --days 1260
 ```
 
-The command includes generation in its RSS high-water mark and times only
-analysis/report writing. The recorded analysis was measured in a fresh process
-against already generated facts; its receipt and facts remain outside Git.
+The command generates fixtures, then launches a fresh analysis process and
+records its analysis/report time and process RSS separately from generation.
+The JSON receipt records Python, Polars, platform and measurement scope. To
+measure an existing generated dataset without regenerating it:
+
+```sh
+python3.12 -m tests.benchmark_product_coverage \
+  --facts out/generic-scale/facts --work out/generic-remeasure
+```
+
+RSS is reported on macOS/Linux and null when the platform lacks the `resource`
+module. Receipts and facts remain outside Git. These reproducible measurements
+do not assert all possible single-family datasets stay within the same memory.
 
 Tests compare monthly minima against exhaustive independent subset searches,
 exercise 240 venue/family groups, seasonal holes, spread pairs, all four

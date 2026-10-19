@@ -3,6 +3,9 @@
 Python 3.12; optional dependencies are declared in `pyproject.toml`. The original
 selection script is independent. Runtime reads local DBN and Parquet only. It
 does not instantiate Databento clients, retrieve credentials, or make requests.
+Install ingestion dependencies with `python -m pip install '.[databento]'`.
+Tests/fixture generation additionally use the `test` extra. All CSV exports are
+spreadsheet presentation text; JSON/Parquet retain exact identities and values.
 
 ## Commands
 

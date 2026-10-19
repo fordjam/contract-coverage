@@ -8,6 +8,7 @@ from datetime import date
 from pathlib import Path
 
 import polars as pl
+from product_coverage.presentation import safe_frame
 
 from .coverage import atomic_text
 from .model import BuildError, frame
@@ -475,7 +476,7 @@ def analyze_ranks(
         flat = [
             {k: json.dumps(v) if isinstance(v, list) else v for k, v in row.items()} for row in rows
         ]
-        csv = pl.DataFrame(flat, infer_schema_length=None).write_csv() if flat else ""
+        csv = safe_frame(pl.DataFrame(flat, infer_schema_length=None)).write_csv() if flat else ""
         atomic_text(output / f"{name}.csv", csv)
     atomic_text(output / "analysis.json", json.dumps(result, default=str, allow_nan=False))
     from .rank_report import render_report, render_summary

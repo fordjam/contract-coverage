@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 
 import polars as pl
+from product_coverage.presentation import safe_cell, safe_frame
 
 from .storage import manifest, scan
 
@@ -172,9 +173,9 @@ def coverage(base: Path) -> dict:
     buffer = io.StringIO(newline="")
     writer = csv.DictWriter(buffer, fieldnames=fields)
     writer.writeheader()
-    writer.writerows(rows)
+    writer.writerows([{key: safe_cell(value) for key, value in row.items()} for row in rows])
     atomic_text(base / "coverage.csv", buffer.getvalue())
-    atomic_text(base / "unmapped.csv", unmapped.write_csv())
+    atomic_text(base / "unmapped.csv", safe_frame(unmapped).write_csv())
     lines = [
         "# Futures data coverage",
         "",

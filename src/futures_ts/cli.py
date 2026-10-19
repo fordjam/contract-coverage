@@ -82,6 +82,15 @@ def main(argv: list[str] | None = None) -> int:
             result = check(args.out)
         print(json.dumps(result, sort_keys=True, allow_nan=False))
         return 0
+    except ModuleNotFoundError as exc:
+        if exc.name not in {"databento", "databento_dbn", "numpy"}:
+            raise
+        print(
+            "futures-ts: install optional dependencies with "
+            "pip install '.[databento]' from the checkout",
+            file=sys.stderr,
+        )
+        return 2
     except (BuildError, OSError, ValueError, OverflowError, PolarsError) as exc:
         print(f"futures-ts: {exc}", file=sys.stderr)
         return 2

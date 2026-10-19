@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import copy
 import csv
+import unicodedata
 import itertools
 import json
 import math
@@ -833,7 +834,7 @@ def analyze(payload: dict) -> dict:
                                               'scope': 'complete_market' if complete else 'supplied_known_observations'}})
         if session == analysis_date:
             current_catalog, current_mapping = catalog, mapping
-    for (td, identity), obs in observations.items():
+    for (td, identity), _obs in observations.items():
         if td <= analysis_date and (td, identity) not in expected_keys:
             fail(f'{identity}/{td}: observation outside listed lifecycle or effective catalog/snapshot')
     denominators = {}
@@ -924,7 +925,7 @@ def analyze(payload: dict) -> dict:
                                 'insufficient': insuff, 'reasons': reasons + activity_reasons,
                                 'conditional_evidence': conditional}
     if policy['require_spread_legs']:
-        for identity, c in candidates.items():
+        for _identity, c in candidates.items():
             item = c['instrument']
             if item['kind'] == 'calendar_spread':
                 bad = [leg for leg in (item['front_leg_id'], item['back_leg_id'])
@@ -1111,6 +1112,15 @@ def synthetic_example():
                        'require_spread_legs': True}}
 
 
+def spreadsheet_cell(value):
+    # CSV is a presentation export. JSON retains exact, reusable identifiers.
+    if isinstance(value, str) and (
+            unicodedata.normalize('NFKC', value).lstrip().startswith(('=', '+', '-', '@', "'"))
+            or any(unicodedata.category(char).startswith('C') for char in value)):
+        return "'" + json.dumps(value, ensure_ascii=True)[1:-1]
+    return value
+
+
 def export_csv(report, filename):
     fields = ['instrument_id', 'product_id', 'kind', 'relative_label', 'label', 'action',
               'cost', 'total_known_volume', 'adv', 'median_volume', 'known_sessions',
@@ -1122,7 +1132,7 @@ def export_csv(report, filename):
         writer.writeheader()
         for rec in report['recommendations']:
             row = {**rec, **rec['metrics'], 'reason': '; '.join(rec['reasons'])}
-            writer.writerow(row)
+            writer.writerow({key: spreadsheet_cell(value) for key, value in row.items()})
 
 
 def summary(report):

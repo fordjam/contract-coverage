@@ -10,6 +10,7 @@ from fractions import Fraction
 import polars as pl
 
 from .schema import ACCOUNTING, GROUP, METHODS, REQUIRED, normalize
+from .policy import validate_policy
 
 
 @dataclass
@@ -276,18 +277,13 @@ def evaluate(
     lookup = {}
     for fitted in policy:
         summary = fitted.summary
-        if (
-            summary["method"] not in METHODS
-            or summary["method"] == "daily-oracle"
-            or summary["minimum_capacity"] is None
-        ):
-            raise ValueError("Only resolved, repeatable policies can be evaluated")
+        rules = validate_policy(fitted)
         if start <= date.fromisoformat(summary["end"]):
             raise ValueError("Evaluation must start after every policy training end")
         key = tuple(summary[c] for c in GROUP)
         if key in lookup:
             raise ValueError("Duplicate policy group")
-        lookup[key] = fitted
+        lookup[key] = AnalysisResult(summary, rules, fitted.curve, fitted.daily)
     if not lookup:
         raise ValueError("Empty policy")
     seen = set()
@@ -302,6 +298,8 @@ def evaluate(
         method, target = fitted.summary["method"], target_fraction(fitted.summary["target"])
         eligible = candidates(data, method)
         daily = audit(data, eligible, fitted.rules, target)
+        if daily.filter(pl.col("selected_products") > fitted.summary["minimum_capacity"]).height:
+            raise ValueError("Policy evaluation exceeds declared capacity")
         summary = summarize(
             data, eligible, fitted.rules, daily, method, target, None, None, universe_complete
         )
