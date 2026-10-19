@@ -2,7 +2,7 @@
 polars==1.44.1
 databento==0.86.0
 databento-dbn==0.69.0
-numpy==2.5.3
+numpy==2.5.4
 tzdata==2026.3
 pytest==9.1.1
 zstandard==0.25.0
