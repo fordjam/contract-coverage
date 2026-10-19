@@ -21,6 +21,7 @@
   deduplicated. Literal brackets and spaces in filenames are supported.
 - CLI provenance omits input paths/names by default; `--include-local-paths`
   explicitly restores them. Reports still contain potentially licensed activity.
+- Release tooling explicitly installs its build backend on fresh Python runners.
 - Fresh-process benchmark mode, isolated wheel/sdist smoke checks, constraints,
   secret/dependency scans, security guidance and synthetic-only bug reports.
 

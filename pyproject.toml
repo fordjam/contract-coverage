@@ -28,7 +28,7 @@ databento = [
 ]
 
 test = ["pytest>=8,<10", "zstandard>=0.23,<1"]
-release = ["build>=1.2,<2", "twine>=6,<7", "ruff>=0.12,<1"]
+release = ["build>=1.2,<2", "twine>=6,<7", "ruff>=0.12,<1", "setuptools>=77"]
 
 [project.scripts]
 futures-ts = "futures_ts.cli:main"
