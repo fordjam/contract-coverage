@@ -5,8 +5,8 @@ across arbitrary families and venues. Monthly delivery rules preserve seasonal
 gaps in the curve. Inputs are local CSV/Parquet exports; runtime makes no vendor
 or API requests.
 
-**Status:** experimental release candidate, currently private. Publication and
-remote release checks remain separate gates. Original code is [0BSD licensed](LICENSE):
+**Status:** public experimental source release. Review the GitHub Actions results
+for the revision you use. Original code is [0BSD licensed](LICENSE):
 anyone may use, modify, redistribute or sell it without an attribution requirement.
 [Dependency and market-data rights remain separate](THIRD_PARTY.md).
 

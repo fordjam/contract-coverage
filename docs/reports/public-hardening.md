@@ -1,7 +1,9 @@
 # Public release hardening
 
-Branch: `packet/packet-f1`. The work remains local/private; no push, merge,
-release upload, GitHub protection change or visibility change was performed.
+Historical report for the local hardening pass on branch `packet/packet-f1`.
+At completion of that pass no push, merge, release upload, GitHub protection
+change or visibility change had been performed. The owner subsequently authorized
+public source publication on 2026-10-18; GitHub records the publication PR and checks.
 
 ## Changes
 

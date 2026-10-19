@@ -1,6 +1,6 @@
 # Contributing
 
-This is an experimental release candidate, currently private. Original code is
+This is an experimental public project. Original code is
 0BSD licensed. Preserve the standalone selector's single-source-file,
 standard-library-only design and Python 3.11 compatibility.
 

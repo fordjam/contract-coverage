@@ -6,11 +6,11 @@ there is no response-time or production-support commitment.
 
 ## Report privately
 
-Once private vulnerability reporting is enabled for the public repository, use
+Use GitHub private vulnerability reporting at
 https://github.com/fordjam/contract-coverage/security/advisories/new.
 If that option is unavailable, open an issue requesting a private contact channel
 **without vulnerability details or attachments**. Wait for that channel before
-sharing details. Maintainers must enable and verify this route before publication.
+sharing details. Maintainers must keep this route enabled and verify it after repository settings change.
 
 Describe the affected version, Python/platform, impact and a synthetic minimal
 reproduction. Never send credentials, environment files, licensed vendor data,

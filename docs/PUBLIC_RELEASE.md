@@ -1,8 +1,14 @@
 # Public release gates
 
-Preparing this candidate does not authorize a push, merge, package publication
-or visibility change. Keep the repository private until publication of a reviewed
-candidate is explicitly authorized.
+The owner explicitly authorized public source publication on 2026-10-18 under
+the existing 0BSD license. This checklist also applies to future releases; preparing
+a candidate alone does not authorize package publication or repository changes.
+No PyPI upload is part of this source release.
+
+The source includes implementation reports with derived aggregate coverage and
+performance results, not vendor extracts or generated market-data artifacts.
+Neither those results nor the software license grants rights to redistribute
+third-party datasets. Git author metadata is retained; history is not rewritten.
 
 ## Technical preparation completed locally
 
@@ -25,7 +31,7 @@ candidate is explicitly authorized.
 The hardening report records actual local executions. Configured workflows or
 checked preparation items do not establish a green remote CI run.
 
-## Remaining owner and GitHub gates
+## Release checklist (verify in GitHub for each candidate)
 
 - [ ] Confirm copyright/contribution rights for the selected code license.
 - [ ] Confirm public scope of the real-data-derived counts/archive statistics in
