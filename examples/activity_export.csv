@@ -1,0 +1,13 @@
+DAY,EXCHANGE,FAMILY,TYPE,ECONOMIC_ID,ACTIVITY,MEASURE,DAY_BASIS,DELIVERY,NEAR,FAR,RELATIVE
+2024-01-03,TEST,ExampleA,outright,A-Feb24,99,trade_volume,exchange_session,2024-02,,,C1
+2024-01-03,TEST,ExampleA,outright,A-Dec26,1,trade_volume,exchange_session,2026-12,,,C8
+2024-02-05,TEST,ExampleA,outright,A-Mar24,99,trade_volume,exchange_session,2024-03,,,C1
+2024-02-05,TEST,ExampleA,outright,A-Dec26,1,trade_volume,exchange_session,2026-12,,,C7
+2024-01-03,TEST,ExampleA,listed_spread,A-Feb24-Dec26,99,trade_volume,exchange_session,,2024-02,2026-12,C8-C1
+2024-01-03,TEST,ExampleA,listed_spread,A-Feb24-Mar24,1,trade_volume,exchange_session,,2024-02,2024-03,C2-C1
+2024-01-03,TEST,ExampleB,outright,B-Jun24,80,trade_volume,exchange_session,2024-06,,,C1
+2024-01-03,TEST,ExampleB,outright,B-Dec24,20,trade_volume,exchange_session,2024-12,,,C2
+2025-01-03,TEST,ExampleA,outright,A-Feb25,1,trade_volume,exchange_session,2025-02,,,C1
+2025-01-03,TEST,ExampleA,outright,A-Dec27,99,trade_volume,exchange_session,2027-12,,,C8
+2025-01-03,TEST,ExampleA,listed_spread,A-Feb25-Dec27,100,trade_volume,exchange_session,,2025-02,2027-12,C8-C1
+2025-01-03,TEST,ExampleB,outright,B-Jun25,100,trade_volume,exchange_session,2025-06,,,C1

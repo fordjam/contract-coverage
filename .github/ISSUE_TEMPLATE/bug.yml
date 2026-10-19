@@ -1,0 +1,22 @@
+name: Bug report
+description: Report a defect using synthetic data only
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Do not attach licensed data, credentials, environment files, private paths,
+        or real activity reports. Use synthetic rows. For security issues, use the
+        private reporting process in SECURITY.md.
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Synthetic reproduction and expected result
+      description: Include the command, package version, Python version, and platform.
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed result
+    validations:
+      required: true

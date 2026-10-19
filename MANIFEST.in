@@ -1,0 +1,7 @@
+include README.md CONTRIBUTING.md LICENSE SECURITY.md THIRD_PARTY.md CHANGELOG.md contract_coverage.py
+recursive-include requirements *.txt
+recursive-include tools *.py
+recursive-include docs *.md *.txt
+recursive-include examples *.json *.csv *.txt
+recursive-include tests *.py
+global-exclude *.dbn* *.parquet *.arrow *.pyc

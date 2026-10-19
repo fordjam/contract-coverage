@@ -1,100 +1,131 @@
-# Contract coverage
+# Minimum futures product coverage
 
-Select which actual futures outright contracts and exchange-listed calendar
-spreads to support for one exchange and product family over a supplied period.
-Rank daily activity, apply a support budget or coverage target, and explain
-each support decision, including required spread legs and missing data.
+Calculate minimum support for a target share of supplied daily futures activity,
+across arbitrary families and venues. Monthly delivery rules preserve seasonal
+gaps in the curve. Inputs are local CSV/Parquet exports; runtime makes no vendor
+or API requests.
 
-**Current status:** private, pre-release. The repository includes synthetic
-examples only. A public release and an open-source license have not been chosen.
+**Status:** public experimental source release. Review the GitHub Actions results
+for the revision you use. Original code is [0BSD licensed](LICENSE):
+anyone may use, modify, redistribute or sell it without an attribution requirement.
+[Dependency and market-data rights remain separate](THIRD_PARTY.md).
 
-## Run
+## Quick start: generic coverage
 
-Python 3.11 or newer; standard library only. No installation or external service
-is required. From the repository root:
-
-```sh
-python3 contract_coverage.py --self-test
-mkdir -p output
-python3 contract_coverage.py --input examples/input.json \
-  --output output/report.json --csv output/recommendations.csv --summary
-```
-
-Each **session is an exchange trading day**. Each daily observation holds the
-volume for one actual outright contract month or one directly reported spread
-pair. Supply the trading calendar and lifecycle catalog alongside daily rows.
-The tool does not acquire exchange or vendor data.
-
-## Limit outright support
-
-For at most two outright contracts over the selected period:
+Use Python 3.12 or 3.13 in an activated virtual environment, from this checkout:
 
 ```sh
-python3 contract_coverage.py --input examples/input.json \
-  --policy examples/policy_outrights.json \
-  --start-date 2025-03-24 --analysis-date 2025-03-28 \
-  --output output/outrights.json --csv output/outrights.csv --summary
+python -m pip install .
+product-coverage analyze --input examples/activity_export.csv \
+  --mapping examples/activity_mapping.json --start 2024-01-01 --end 2024-12-31 \
+  --target 0.99 --out out/training
+product-coverage evaluate --input examples/activity_export.csv \
+  --mapping examples/activity_mapping.json --policy out/training \
+  --start 2025-01-01 --out out/holdout
 ```
 
-Change `budgets.outrights` in the policy, or override it with
-`--outright-budget 3`. Cost defaults to one per actual instrument; configurable
-costs turn these counts into cost limits.
+These examples are synthetic. Training selects three outright slots across two
+families and one listed-spread slot. The later ExampleA outright test captures
+only 1%, illustrating why historical fitted coverage is not a future guarantee.
+Open `out/training/summary.md` or `summary.csv`; exact reusable rules are in each
+numbered group's checksummed `rules.json`.
 
-For one overall budget across outright and spread support, the sample input
-uses `shared_budget: 4`, explicit category weights, and
-`require_spread_legs: true`. Supporting a spread adds its actual legs and counts
-each unique leg once. Outright and spread coverage always remain separate.
+Normalized inputs may be dataset directories, literal wildcards or explicit files.
+Files are resolved and deduplicated independently of shell wildcard expansion:
 
-For minimum-cost support meeting coverage targets, use
-`--policy examples/policy_target.json`. Individual CLI overrides take precedence
-over a policy file, which replaces the input policy. Run `--help` for options.
+```sh
+product-coverage analyze --input out/canonical-data --target 0.99 --out out/coverage
+```
 
-## Synthetic example
+The base installation uses Polars and portable timezone data, without a vendor
+SDK. Approved Bloomberg or other vendor exports use a JSON column/constants
+mapping. This is a file interface, not a live Bloomberg connector or a verified
+Bloomberg field mapping. See [schemas and methods](docs/product-coverage.md).
 
-With a two-outright limit, the sample selects **C1 and C4**, capturing **87.5%**
-of supplied known outright volume. With the shared budget of four:
+## What “minimum” means
 
-| Actual ID | Relative label | Daily ADV | Action | Reason |
-| --- | --- | ---: | --- | --- |
-| A | C1 | 100 | Support | Observed activity |
-| B | C2 | 0 | Dependency only | Required leg of AB |
-| C | C3 | 40 | Do not support | Capacity |
-| D | C4 | 180 | Support | Observed activity |
-| AB | S(1,2) | 80 | Support | Direct spread activity |
-| BC | S(2,3) | 10 | Do not support | Capacity |
+Each venue/family/category has its own target and one unit cost per product/slot.
+Outright and directly traded spread volumes have separate denominators.
 
-Total cost is four. Separate known-volume coverage is **87.5% outright** and
-**88.9% spread**. Five supplied trading days make ADV20/60 partial.
+| Method | Quantity minimized | Policy |
+| --- | --- | --- |
+| `monthly-calendar` | Fixed concurrent capacity | Up to K delivery patterns per observation calendar month |
+| `fixed-products` | Actual dated product count | One subset over the supplied period |
+| `fixed-patterns` | Supplied C-label/pattern count | One subset of externally resolved labels |
+| `daily-oracle` | Fixed concurrent capacity | Up to K products using each day's volume; hindsight lower bound |
 
-See the [sample input](examples/input.json), [readable results](examples/summary.txt),
-and [expected CSV](examples/expected_recommendations.csv).
+Results are exact within these independent, equal-cost policy classes and target
+**aggregate known supplied volume**, not every trading day. Missing volume stays
+unknown. Unselectable known activity stays in the denominator. A full-universe
+assertion needs independent completeness evidence. Group capacity totals do not
+optimize shared spread-leg acquisition costs or a pooled target across families.
+Monthly rules are fitted in-sample; evaluate a later holdout before relying on them.
 
-## Behavior and limits
+## Three interfaces
 
-- Rebuilds historical C/S ranks from actual dated instruments, independently of
-  volume. Actual spread identities survive rank changes and shared labels.
-- Distinguishes confirmed zero, missing observations, and unverified calendar
-  or catalog completeness. Missing volume never becomes confirmed inactivity.
-- Returns activity, frequency bounds, rolling metrics, OI freshness, costs,
-  reasons, coverage curves, and contiguous-chain comparisons in JSON/CSV.
-- Separates historical decisions from future-session evaluation. Publication
-  timestamps and a decision cutoff are needed to verify point-in-time inputs.
-- Uses exact independent equal-cost selection and exact small coupled searches.
-  Beyond the configured coupled-search limit it abstains unless approximation
-  is explicitly enabled, in which case optimality is labeled `heuristic`.
-- Coverage refers to the supplied known-volume universe and specified
-  constraints. Unknown denominators leave the full objective unresolved.
+| Interface | Purpose | Requirements |
+| --- | --- | --- |
+| `product-coverage` | Generic independent minima and frozen-policy evaluation | Python 3.12+; base installation |
+| `futures-ts` | Local DBN preparation, continuous series and expiry-rank reports | Python 3.12+; Databento extra for ingestion |
+| `contract_coverage.py` | Original supplied-data selector, including small coupled-cost/shared-leg problems | Python 3.11+; standard library only |
 
-The importable `analyze(payload: dict) -> dict` function performs no file I/O or
-network access. The implementation and self-tests remain in **one Python file**.
+### Optional Databento preparation
 
-## Development and future publication
+```sh
+python -m pip install '.[databento,test]'
+python -m tests.generate_fixtures --out out/synthetic-source
+futures-ts build --src out/synthetic-source --out out/synthetic-series --roots CL
+futures-ts coverage --out out/synthetic-series
+futures-ts check --out out/synthetic-series
+product-coverage from-futures-ts --src out/synthetic-series \
+  --start 2025-01-01 --end 2025-12-31 --out out/canonical-data
+```
 
-Read the [input and policy reference](docs/input-and-policy.txt),
-[contributing guide](CONTRIBUTING.md), and [public-release checklist](docs/PUBLIC_RELEASE.md).
-CI runs embedded tests and CLI/CSV smoke checks on Python 3.11–3.13 on Linux
-and Windows. Vendor data belongs in ignored `data/`; generated reports belong
-in ignored `output/`. Ignore rules do not substitute for reviewing staged files.
+The GLBX ingestion adapter has a 35-root list; the generic engine has no fixed
+family list. UTC-day bar volume remains separate from reference-session cleared
+volume. Synthetic spread prices have no invented activity. See the
+[futures-ts guide](docs/futures-ts.md). No real data belongs in Git.
 
-No `LICENSE` has been added. The owner must choose distribution terms before
-an open-source release. Keep real vendor data and credentials out of commits.
+### Original standalone selector
+
+```sh
+python contract_coverage.py --self-test
+python contract_coverage.py --input examples/input.json \
+  --policy examples/policy_target.json --output output/selector.json --summary
+```
+
+Create `output/` first. Its different budget/cost/point-in-time contract is in the
+[input and policy reference](docs/input-and-policy.txt). Coupled exact search has
+explicit size limits and labels approximations. The generic engine does not
+claim to solve those shared-leg cost problems.
+
+## Reports and compatibility
+
+Generic reports use **format v2**. JSON retains exact identities; CSV is
+spreadsheet presentation text, with formula/control escaping. Policy imports
+verify hashes, training bindings, schemas, capacity and minimality certificates.
+Regenerate legacy v1 policies from their original facts/window; they are not
+accepted as frozen inputs. See the [changelog](CHANGELOG.md).
+
+Generic CLI provenance omits input names/absolute paths by default. Reports still contain
+identifiers and activity. Review them before sharing; use synthetic reproductions
+in public issues. See [security reporting](SECURITY.md).
+
+## Validation and contributions
+
+```sh
+python -m pip install -c requirements/validation.txt '.[databento,test,release]'
+python -m pytest tests/ -q
+python contract_coverage.py --self-test
+```
+
+CI is configured for package/core Python 3.12/3.13 on Linux, Windows and macOS.
+The standalone selector has a separate Python 3.11–3.13 matrix. Release jobs
+install wheel/sdist outside the source checkout, check core operation without a
+vendor SDK, exercise synthetic pipelines, and scan history/installed dependencies.
+Configured jobs are not proof of a green remote run.
+
+See [contributing](CONTRIBUTING.md), [release gates](docs/PUBLIC_RELEASE.md), and
+[implementation/validation report](docs/reports/packet-F1.md). Runtime commands
+and pytest are offline. Package installation and explicit release security tools
+use public services. PyPI publication is not required for a GitHub source release.
