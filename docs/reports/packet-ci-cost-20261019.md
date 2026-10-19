@@ -4,7 +4,7 @@
 
 Based on main commit `faa3dbfd2661581c33d76942808e473a82dc1833`. Prepared on `packet/ci-cost-20261019`; no main/staging update, pull request, merge, deployment, or billing change is included.
 
-All three workflows now run on pushes to main, on pull requests, and by manual dispatch. Feature-branch and tag pushes no longer start a duplicate run. A feature-branch change with an open PR still receives all 22 existing jobs on the PR event. Branch-only pushes without a PR no longer run CI; open a PR or use the existing manual dispatch when validation is needed.
+All three workflows now run on pushes to main, on all tag pushes, on pull requests, and by manual dispatch. Feature-branch pushes no longer start a duplicate run. Existing tag-push coverage is preserved. A feature-branch change with an open PR still receives all 22 existing jobs on the PR event. Branch-only pushes without a PR wait for PR/main validation; open a PR or use the existing manual dispatch when validation is needed.
 
 Each workflow cancels superseded runs in the same workflow/event/ref group. Including the event name keeps manual and push runs separate; distinct PRs and workflows do not cancel each other. The latest run retains all original checks. These workflows contain testing, linting, local package builds, and validation only, with no release publication or deployment step.
 
