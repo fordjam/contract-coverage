@@ -22,7 +22,7 @@ Issues = "https://github.com/fordjam/contract-coverage/issues"
 
 [project.optional-dependencies]
 databento = [
-  "databento>=0.86,<0.87",
+  "databento>=0.86,<0.88",
   "databento-dbn>=0.69,<0.70",
   "numpy>=1.26,<3",
 ]
