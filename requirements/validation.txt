@@ -1,7 +1,7 @@
 # Direct-dependency constraints used for repeatable validation, not a downstream lock.
 polars==1.44.1
 databento==0.86.0
-databento-dbn==0.69.0
+databento-dbn==0.72.0
 numpy==2.5.3
 tzdata==2026.3
 pytest==9.1.1
